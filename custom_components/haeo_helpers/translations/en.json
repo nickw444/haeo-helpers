@@ -1,0 +1,17 @@
+{
+    "config": {
+        "flow_title": "{name}",
+        "step": {
+            "user": {
+                "title": "Set up HAEO Helpers",
+                "description": "Create a helper integration entry used by HAEO helper entities.",
+                "data": {
+                    "name": "Entry name"
+                }
+            }
+        },
+        "abort": {
+            "already_configured": "HAEO Helpers is already configured."
+        }
+    }
+}

@@ -1,0 +1,14 @@
+{
+  "domain": "haeo_helpers",
+  "name": "HAEO Helpers",
+  "codeowners": [
+    "@nickw444"
+  ],
+  "config_flow": true,
+  "documentation": "https://github.com/nickw444/haeo-helpers",
+  "integration_type": "helper",
+  "iot_class": "calculated",
+  "issue_tracker": "https://github.com/nickw444/haeo-helpers/issues",
+  "single_config_entry": true,
+  "version": "0.1.0"
+}
