@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 from homeassistant.const import CONF_NAME
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers import selector
@@ -44,6 +47,14 @@ from custom_components.haeo_helpers.helpers.forecast_statistic.const import (
     CONF_SOURCE_ENTITY as CONF_STAT_SOURCE_ENTITY,
 )
 
+TRANSLATIONS_PATH = (
+    Path(__file__).parents[1]
+    / "custom_components"
+    / "haeo_helpers"
+    / "translations"
+    / "en.json"
+)
+
 
 def _schema_key_names(data_schema) -> set[str]:
     """Return key names from a voluptuous schema."""
@@ -60,6 +71,16 @@ def _schema_selector(data_schema, key_name: str):
             return value
     msg = f"Missing schema key: {key_name}"
     raise AssertionError(msg)
+
+
+def test_choose_selector_choice_labels_are_translated():
+    """ChooseSelector uses choices, not options, for pill labels."""
+    translations = json.loads(TRANSLATIONS_PATH.read_text())
+
+    assert translations["selector"]["input_source"]["choices"] == {
+        "entity": "Entity",
+        "constant": "Constant",
+    }
 
 
 async def test_user_step_shows_helper_kind_selector(hass):

@@ -95,7 +95,7 @@
     },
     "selector": {
         "input_source": {
-            "options": {
+            "choices": {
                 "entity": "Entity",
                 "constant": "Constant"
             }
