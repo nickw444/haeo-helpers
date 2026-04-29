@@ -23,3 +23,26 @@ keep-runtime-typing = true
 
 [lint.mccabe]
 max-complexity = 25
+
+[lint.per-file-ignores]
+"tests/**/*.py" = [
+    "ANN001", # Fixture-heavy tests do not need full argument typing
+    "ANN003", # kwargs typing is unnecessary for local test helpers
+    "ANN201", # Return typing in tests adds noise with limited value
+    "ANN202", # Return typing in private test helpers adds noise
+    "ARG001", # Unused fixture/pytest parameters are common in tests
+    "D100", # Missing module docstring
+    "D101", # Missing class docstring
+    "D102", # Missing method docstring
+    "D103", # Missing function docstring
+    "D104", # Missing package docstring
+    "D107", # Missing __init__ docstring
+    "FBT001", # Boolean args in tests are acceptable
+    "FBT002", # Boolean default args in tests are acceptable
+    "INP001", # Tests package style does not need package init enforcement
+    "PLR2004", # Magic numbers are expected in assertions
+    "PLR0913", # Test function fixture signatures can be wide
+    "S101", # assert statements are used in tests
+    "SLF001", # Accessing private methods is acceptable in tests
+    "TC003", # Move import to type-checking block is unnecessary in tests
+]

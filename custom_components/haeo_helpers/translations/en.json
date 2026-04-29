@@ -3,15 +3,102 @@
         "flow_title": "{name}",
         "step": {
             "user": {
-                "title": "Set up HAEO Helpers",
-                "description": "Create a helper integration entry used by HAEO helper entities.",
+                "title": "Choose helper type",
+                "description": "Select the kind of helper to create.",
                 "data": {
-                    "name": "Entry name"
+                    "helper_kind": "Helper type"
+                }
+            },
+            "forecast_statistic": {
+                "title": "Create forecast statistic helper",
+                "description": "Aggregate values from a forecast sensor attribute.",
+                "data": {
+                    "name": "Helper name",
+                    "source_entity": "Forecast source sensor",
+                    "aggregation": "Statistic",
+                    "percentile": "Percentile (0-100)",
+                    "adjustment": "Absolute adjustment"
+                }
+            },
+            "forecast_risk_adjustment": {
+                "title": "Create forecast risk adjustment helper",
+                "description": "Apply basis bias and ramped risk bias to forecast values.",
+                "data": {
+                    "name": "Helper name",
+                    "source_entity": "Forecast source sensor",
+                    "basis_bias_input": "Basis bias",
+                    "basis_bias_source": "Basis bias",
+                    "basis_bias_pct": "Constant basis bias percent",
+                    "basis_bias_entity": "Basis bias entity",
+                    "risk_bias_input": "Risk bias",
+                    "risk_bias_source": "Risk bias",
+                    "risk_bias_pct": "Constant risk bias percent",
+                    "risk_bias_entity": "Risk bias entity",
+                    "ramp_start_after_minutes": "Ramp start after (minutes)",
+                    "ramp_duration_minutes": "Ramp duration (minutes)",
+                    "curve": "Ramp curve"
                 }
             }
         },
         "abort": {
-            "already_configured": "HAEO Helpers is already configured."
+            "unsupported_helper_kind": "This helper type is not supported."
+        },
+        "error": {
+            "entity_not_found": "Selected entity was not found.",
+            "entity_not_forecast": "Selected entity does not expose a forecast list attribute.",
+            "entity_required": "An entity is required when source is set to Entity.",
+            "entity_not_number": "Selected entity must have a numeric state.",
+            "value_required": "A constant value is required when source is set to Constant."
+        }
+    },
+    "options": {
+        "step": {
+            "forecast_statistic": {
+                "title": "Edit forecast statistic helper",
+                "data": {
+                    "name": "Helper name",
+                    "source_entity": "Forecast source sensor",
+                    "aggregation": "Statistic",
+                    "percentile": "Percentile (0-100)",
+                    "adjustment": "Absolute adjustment"
+                }
+            },
+            "forecast_risk_adjustment": {
+                "title": "Edit forecast risk adjustment helper",
+                "data": {
+                    "name": "Helper name",
+                    "source_entity": "Forecast source sensor",
+                    "basis_bias_input": "Basis bias",
+                    "basis_bias_source": "Basis bias",
+                    "basis_bias_pct": "Constant basis bias percent",
+                    "basis_bias_entity": "Basis bias entity",
+                    "risk_bias_input": "Risk bias",
+                    "risk_bias_source": "Risk bias",
+                    "risk_bias_pct": "Constant risk bias percent",
+                    "risk_bias_entity": "Risk bias entity",
+                    "ramp_start_after_minutes": "Ramp start after (minutes)",
+                    "ramp_duration_minutes": "Ramp duration (minutes)",
+                    "curve": "Ramp curve"
+                }
+            }
+        },
+        "abort": {
+            "unsupported_helper_kind": "This helper type is not supported."
+        },
+        "error": {
+            "entity_not_found": "Selected entity was not found.",
+            "entity_not_forecast": "Selected entity does not expose a forecast list attribute.",
+            "entity_required": "An entity is required when source is set to Entity.",
+            "entity_not_number": "Selected entity must have a numeric state.",
+            "value_required": "A constant value is required when source is set to Constant."
+        }
+    },
+    "selector": {
+        "input_source": {
+            "options": {
+                "entity": "Entity",
+                "constant": "Constant"
+            }
         }
     }
 }

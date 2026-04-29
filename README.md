@@ -1,36 +1,37 @@
 # HAEO Helpers
 
-HAEO Helpers is a Home Assistant integration that will provide helper entities
-to pair with [HAEO](https://github.com/hass-energy/haeo) and support equivalent
-helper-oriented workflows to
-[Energy Assistant](https://github.com/nickw444/energy-assistant).
+HAEO Helpers is a Home Assistant helper integration for creating derived sensor
+entities that pair with [HAEO](https://github.com/hass-energy/haeo).
 
-This repository is currently tailored as a clean integration skeleton:
-- `haeo_helpers` domain and config flow are in place.
-- Integration metadata is aligned for this project.
-- Functional behavior is intentionally deferred to follow-up work.
+The integration focuses on helper workflows that previously lived inside
+[Energy Assistant](https://github.com/nickw444/energy-assistant), making those
+behaviors available as Home Assistant entities that HAEO and normal
+automations can consume.
 
-## Project layout
+## Current Helpers
+
+Helper | Use case
+-- | --
+Forecast Statistic | Reduce a source sensor's `forecast` attribute to one representative value using percentile or mean aggregation. This replicates the Energy Assistant median-style terminal planning behavior.
+Forecast Risk Adjustment | Create a risk-adjusted forecast by applying a baseline bias and a ramped future-risk bias to each forecast point. This replicates the Energy Assistant `grid_price_bias_pct` and `grid_price_risk` behavior.
+
+See the helper-specific README files for details:
+
+- [Forecast Statistic](custom_components/haeo_helpers/helpers/forecast_statistic/README.md)
+- [Forecast Risk Adjustment](custom_components/haeo_helpers/helpers/forecast_risk_adjustment/README.md)
+
+## Project Layout
 
 File | Purpose
 -- | --
-`.devcontainer.json` | Dev container config for local development.
-`.github/workflows/*.yml` | CI workflows for linting and validation.
-`custom_components/haeo_helpers/*` | Integration source code and config flow.
+`custom_components/haeo_helpers/*` | Home Assistant integration source code.
+`custom_components/haeo_helpers/helpers/*` | Helper-specific implementation, flow, sensor, constants, and documentation.
+`tests/*` | Pytest suite for sensor behavior, config flows, dispatch, and lifecycle.
+`scripts/*` | Development and test command wrappers.
 `config/configuration.yaml` | Development Home Assistant config.
-`scripts/*` | Helper scripts for setup, linting, and local runs.
 
 ## Development
 
-1. Open this repository in a dev container or local Python environment.
-1. Run `scripts/setup`.
-1. Run `scripts/develop` to start Home Assistant with this integration loaded.
-1. Run `scripts/lint` before opening a pull request.
-
-## Next steps
-
-1. Implement HAEO-specific helper entity behavior.
-1. Define how HAEO helpers map to Energy Assistant capabilities.
-1. Add tests (for example with `pytest-homeassistant-custom-component`).
-1. Add brand assets (logo/icon) via Home Assistant brands.
-1. Publish releases and submit to HACS when ready.
+1. Install runtime and test dependencies.
+1. Run `scripts/test` for the pytest suite.
+1. Run `scripts/lint` or `ruff check .` before opening a pull request.
