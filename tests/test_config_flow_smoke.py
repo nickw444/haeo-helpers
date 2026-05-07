@@ -5,9 +5,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
 from homeassistant.const import CONF_NAME
-from homeassistant.data_entry_flow import FlowResultType
-from homeassistant.helpers import selector
+from homeassistant.data_entry_flow import FlowResultType, InvalidData
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.haeo_helpers.const import (
@@ -25,6 +25,7 @@ from custom_components.haeo_helpers.helpers.forecast_risk_adjustment.const impor
     CONF_CURVE,
     CONF_RAMP_DURATION_MINUTES,
     CONF_RAMP_START_AFTER_MINUTES,
+    CONF_RISK_BIAS_ENTITY,
     CONF_RISK_BIAS_PCT,
     CONF_RISK_BIAS_SOURCE,
     CURVE_LINEAR,
@@ -35,7 +36,6 @@ from custom_components.haeo_helpers.helpers.forecast_risk_adjustment.const impor
 from custom_components.haeo_helpers.helpers.forecast_risk_adjustment.flow import (
     CONF_BASIS_BIAS_INPUT,
     CONF_RISK_BIAS_INPUT,
-    supports_choose_selector,
 )
 from custom_components.haeo_helpers.helpers.forecast_statistic.const import (
     AGGREGATION_PERCENTILE,
@@ -71,6 +71,11 @@ def _schema_selector(data_schema, key_name: str):
             return value
     msg = f"Missing schema key: {key_name}"
     raise AssertionError(msg)
+
+
+def _choose_selector_config(data_schema, key_name: str) -> dict[str, object]:
+    """Return serialized choose-selector config for a schema field."""
+    return _schema_selector(data_schema, key_name).serialize()["selector"]["choose"]
 
 
 def test_choose_selector_choice_labels_are_translated():
@@ -133,12 +138,12 @@ async def test_create_forecast_statistic_happy_path(
     assert create_result["data"][CONF_HELPER_KIND] == HELPER_KIND_FORECAST_STATISTIC
 
 
-async def test_create_forecast_risk_adjustment_happy_path_constant_sources(
+async def test_create_forecast_risk_adjustment_happy_path_constant_choices(
     hass,
     forecast_points_factory,
     source_state_factory,
 ):
-    """Creating a risk-adjustment helper succeeds with constant bias sources."""
+    """Creating a risk-adjustment helper succeeds with constant choose values."""
     source_state_factory(
         "sensor.risk_forecast",
         forecast=forecast_points_factory([(0, 10.0), (10, 11.0)]),
@@ -156,28 +161,21 @@ async def test_create_forecast_risk_adjustment_happy_path_constant_sources(
     assert kind_result["type"] == FlowResultType.FORM
     assert kind_result["step_id"] == HELPER_KIND_FORECAST_RISK_ADJUSTMENT
 
-    if supports_choose_selector():
-        form_data = {
-            CONF_NAME: "Risk Helper",
-            CONF_RISK_SOURCE_ENTITY: "sensor.risk_forecast",
-            CONF_BASIS_BIAS_INPUT: 5.0,
-            CONF_RISK_BIAS_INPUT: 20.0,
-            CONF_RAMP_START_AFTER_MINUTES: 30,
-            CONF_RAMP_DURATION_MINUTES: 90,
-            CONF_CURVE: CURVE_LINEAR,
-        }
-    else:
-        form_data = {
-            CONF_NAME: "Risk Helper",
-            CONF_RISK_SOURCE_ENTITY: "sensor.risk_forecast",
-            CONF_BASIS_BIAS_SOURCE: BIAS_SOURCE_CONSTANT,
-            CONF_BASIS_BIAS_PCT: 5.0,
-            CONF_RISK_BIAS_SOURCE: BIAS_SOURCE_CONSTANT,
-            CONF_RISK_BIAS_PCT: 20.0,
-            CONF_RAMP_START_AFTER_MINUTES: 30,
-            CONF_RAMP_DURATION_MINUTES: 90,
-            CONF_CURVE: CURVE_LINEAR,
-        }
+    form_data = {
+        CONF_NAME: "Risk Helper",
+        CONF_RISK_SOURCE_ENTITY: "sensor.risk_forecast",
+        CONF_BASIS_BIAS_INPUT: {
+            "active_choice": BIAS_SOURCE_CONSTANT,
+            BIAS_SOURCE_CONSTANT: 5.0,
+        },
+        CONF_RISK_BIAS_INPUT: {
+            "active_choice": BIAS_SOURCE_CONSTANT,
+            BIAS_SOURCE_CONSTANT: 20.0,
+        },
+        CONF_RAMP_START_AFTER_MINUTES: 30,
+        CONF_RAMP_DURATION_MINUTES: 90,
+        CONF_CURVE: CURVE_LINEAR,
+    }
 
     create_result = await hass.config_entries.flow.async_configure(
         kind_result["flow_id"],
@@ -191,12 +189,12 @@ async def test_create_forecast_risk_adjustment_happy_path_constant_sources(
     )
 
 
-async def test_risk_form_uses_list_mode_for_entity_constant_source_selectors(
+async def test_risk_form_uses_choose_selector_for_entity_constant_inputs(
     hass,
     forecast_points_factory,
     source_state_factory,
 ):
-    """Risk flow source selectors should render in list mode (tab-like)."""
+    """Risk flow exposes choose selectors for basis and risk inputs."""
     source_state_factory(
         "sensor.risk_forecast",
         forecast=forecast_points_factory([(0, 10.0), (10, 11.0)]),
@@ -211,36 +209,37 @@ async def test_risk_form_uses_list_mode_for_entity_constant_source_selectors(
         {CONF_HELPER_KIND: HELPER_KIND_FORECAST_RISK_ADJUSTMENT},
     )
 
-    if supports_choose_selector():
-        basis_selector = _schema_selector(
-            kind_result["data_schema"],
-            CONF_BASIS_BIAS_INPUT,
-        )
-        risk_selector = _schema_selector(
-            kind_result["data_schema"],
-            CONF_RISK_BIAS_INPUT,
-        )
-        assert "choose" in basis_selector.serialize()["selector"]
-        assert "choose" in risk_selector.serialize()["selector"]
-    else:
-        basis_selector = _schema_selector(
-            kind_result["data_schema"],
-            CONF_BASIS_BIAS_SOURCE,
-        )
-        risk_selector = _schema_selector(
-            kind_result["data_schema"],
-            CONF_RISK_BIAS_SOURCE,
-        )
-        assert basis_selector.config["mode"] == selector.SelectSelectorMode.LIST
-        assert risk_selector.config["mode"] == selector.SelectSelectorMode.LIST
+    basis_choose = _choose_selector_config(
+        kind_result["data_schema"], CONF_BASIS_BIAS_INPUT
+    )
+    risk_choose = _choose_selector_config(
+        kind_result["data_schema"], CONF_RISK_BIAS_INPUT
+    )
+
+    schema_keys = _schema_key_names(kind_result["data_schema"])
+    assert CONF_BASIS_BIAS_SOURCE not in schema_keys
+    assert CONF_BASIS_BIAS_PCT not in schema_keys
+    assert CONF_BASIS_BIAS_ENTITY not in schema_keys
+    assert CONF_RISK_BIAS_SOURCE not in schema_keys
+    assert CONF_RISK_BIAS_PCT not in schema_keys
+    assert CONF_RISK_BIAS_ENTITY not in schema_keys
+
+    assert basis_choose["translation_key"] == "input_source"
+    assert risk_choose["translation_key"] == "input_source"
+    assert set(basis_choose["choices"]) == {BIAS_SOURCE_ENTITY, BIAS_SOURCE_CONSTANT}
+    assert set(risk_choose["choices"]) == {BIAS_SOURCE_ENTITY, BIAS_SOURCE_CONSTANT}
+    assert set(basis_choose["choices"][BIAS_SOURCE_ENTITY]["selector"]) == {"entity"}
+    assert set(risk_choose["choices"][BIAS_SOURCE_ENTITY]["selector"]) == {"entity"}
+    assert set(basis_choose["choices"][BIAS_SOURCE_CONSTANT]["selector"]) == {"number"}
+    assert set(risk_choose["choices"][BIAS_SOURCE_CONSTANT]["selector"]) == {"number"}
 
 
-async def test_risk_form_switches_fields_when_entity_mode_is_selected(
+async def test_risk_form_requires_entity_when_entity_choice_is_selected(
     hass,
     forecast_points_factory,
     source_state_factory,
 ):
-    """Selecting entity mode swaps percent input for entity input."""
+    """Choose selector requires an entity value when entity is selected."""
     source_state_factory(
         "sensor.risk_forecast",
         forecast=forecast_points_factory([(0, 10.0), (10, 11.0)]),
@@ -256,34 +255,29 @@ async def test_risk_form_switches_fields_when_entity_mode_is_selected(
     )
 
     initial_keys = _schema_key_names(kind_result["data_schema"])
-    if supports_choose_selector():
-        assert CONF_BASIS_BIAS_INPUT in initial_keys
-        assert CONF_BASIS_BIAS_PCT not in initial_keys
-        assert CONF_BASIS_BIAS_ENTITY not in initial_keys
-    else:
-        assert CONF_BASIS_BIAS_PCT in initial_keys
-        assert CONF_BASIS_BIAS_ENTITY not in initial_keys
+    assert CONF_BASIS_BIAS_INPUT in initial_keys
+    assert CONF_BASIS_BIAS_SOURCE not in initial_keys
+    assert CONF_BASIS_BIAS_ENTITY not in initial_keys
 
-        result = await hass.config_entries.flow.async_configure(
+    with pytest.raises(InvalidData):
+        await hass.config_entries.flow.async_configure(
             kind_result["flow_id"],
             {
                 CONF_NAME: "Risk Helper",
                 CONF_RISK_SOURCE_ENTITY: "sensor.risk_forecast",
-                CONF_BASIS_BIAS_SOURCE: BIAS_SOURCE_ENTITY,
-                CONF_RISK_BIAS_SOURCE: BIAS_SOURCE_CONSTANT,
-                CONF_RISK_BIAS_PCT: 20.0,
+                CONF_BASIS_BIAS_INPUT: {
+                    "active_choice": BIAS_SOURCE_ENTITY,
+                    BIAS_SOURCE_ENTITY: "",
+                },
+                CONF_RISK_BIAS_INPUT: {
+                    "active_choice": BIAS_SOURCE_CONSTANT,
+                    BIAS_SOURCE_CONSTANT: 20.0,
+                },
                 CONF_RAMP_START_AFTER_MINUTES: 30,
                 CONF_RAMP_DURATION_MINUTES: 90,
                 CONF_CURVE: CURVE_LINEAR,
             },
         )
-
-        assert result["type"] == FlowResultType.FORM
-        assert result["errors"] == {CONF_BASIS_BIAS_ENTITY: "entity_required"}
-
-        updated_keys = _schema_key_names(result["data_schema"])
-        assert CONF_BASIS_BIAS_ENTITY in updated_keys
-        assert CONF_BASIS_BIAS_PCT not in updated_keys
 
 
 async def test_create_rejects_missing_forecast_source(hass):
@@ -345,7 +339,7 @@ async def test_risk_create_requires_entity_when_entity_source_selected(
     forecast_points_factory,
     source_state_factory,
 ):
-    """Entity source mode requires selecting an entity."""
+    """Choose selector requires a selected entity payload."""
     source_state_factory(
         "sensor.risk_forecast",
         forecast=forecast_points_factory([(0, 10.0), (10, 11.0)]),
@@ -360,38 +354,26 @@ async def test_risk_create_requires_entity_when_entity_source_selected(
         {CONF_HELPER_KIND: HELPER_KIND_FORECAST_RISK_ADJUSTMENT},
     )
 
-    if supports_choose_selector():
-        form_data = {
-            CONF_NAME: "Risk Helper",
-            CONF_RISK_SOURCE_ENTITY: "sensor.risk_forecast",
-            CONF_BASIS_BIAS_INPUT: "",
-            CONF_RISK_BIAS_INPUT: 20.0,
-            CONF_RAMP_START_AFTER_MINUTES: 30,
-            CONF_RAMP_DURATION_MINUTES: 90,
-            CONF_CURVE: CURVE_LINEAR,
-        }
-        expected_error = {CONF_BASIS_BIAS_INPUT: "entity_required"}
-    else:
-        form_data = {
-            CONF_NAME: "Risk Helper",
-            CONF_RISK_SOURCE_ENTITY: "sensor.risk_forecast",
-            CONF_BASIS_BIAS_SOURCE: BIAS_SOURCE_ENTITY,
-            CONF_BASIS_BIAS_PCT: 5.0,
-            CONF_RISK_BIAS_SOURCE: BIAS_SOURCE_CONSTANT,
-            CONF_RISK_BIAS_PCT: 20.0,
-            CONF_RAMP_START_AFTER_MINUTES: 30,
-            CONF_RAMP_DURATION_MINUTES: 90,
-            CONF_CURVE: CURVE_LINEAR,
-        }
-        expected_error = {CONF_BASIS_BIAS_ENTITY: "entity_required"}
-
-    result = await hass.config_entries.flow.async_configure(
-        kind_result["flow_id"],
-        form_data,
-    )
-
-    assert result["type"] == FlowResultType.FORM
-    assert result["errors"] == expected_error
+    form_data = {
+        CONF_NAME: "Risk Helper",
+        CONF_RISK_SOURCE_ENTITY: "sensor.risk_forecast",
+        CONF_BASIS_BIAS_INPUT: {
+            "active_choice": BIAS_SOURCE_ENTITY,
+            BIAS_SOURCE_ENTITY: "",
+        },
+        CONF_RISK_BIAS_INPUT: {
+            "active_choice": BIAS_SOURCE_CONSTANT,
+            BIAS_SOURCE_CONSTANT: 20.0,
+        },
+        CONF_RAMP_START_AFTER_MINUTES: 30,
+        CONF_RAMP_DURATION_MINUTES: 90,
+        CONF_CURVE: CURVE_LINEAR,
+    }
+    with pytest.raises(InvalidData):
+        await hass.config_entries.flow.async_configure(
+            kind_result["flow_id"],
+            form_data,
+        )
 
 
 async def test_risk_create_rejects_non_numeric_entity_state(
@@ -399,7 +381,7 @@ async def test_risk_create_rejects_non_numeric_entity_state(
     forecast_points_factory,
     source_state_factory,
 ):
-    """Entity source mode rejects non-numeric entity states."""
+    """Choose selector rejects non-numeric entity states."""
     source_state_factory(
         "sensor.risk_forecast",
         forecast=forecast_points_factory([(0, 10.0), (10, 11.0)]),
@@ -415,54 +397,26 @@ async def test_risk_create_rejects_non_numeric_entity_state(
         {CONF_HELPER_KIND: HELPER_KIND_FORECAST_RISK_ADJUSTMENT},
     )
 
-    if supports_choose_selector():
-        form_data = {
-            CONF_NAME: "Risk Helper",
-            CONF_RISK_SOURCE_ENTITY: "sensor.risk_forecast",
-            CONF_BASIS_BIAS_INPUT: "input_number.bias",
-            CONF_RISK_BIAS_INPUT: 20.0,
-            CONF_RAMP_START_AFTER_MINUTES: 30,
-            CONF_RAMP_DURATION_MINUTES: 90,
-            CONF_CURVE: CURVE_LINEAR,
-        }
-        expected_error = {CONF_BASIS_BIAS_INPUT: "entity_not_number"}
-        result = await hass.config_entries.flow.async_configure(
-            kind_result["flow_id"],
-            form_data,
-        )
-    else:
-        mode_switch_result = await hass.config_entries.flow.async_configure(
-            kind_result["flow_id"],
-            {
-                CONF_NAME: "Risk Helper",
-                CONF_RISK_SOURCE_ENTITY: "sensor.risk_forecast",
-                CONF_BASIS_BIAS_SOURCE: BIAS_SOURCE_ENTITY,
-                CONF_RISK_BIAS_SOURCE: BIAS_SOURCE_CONSTANT,
-                CONF_RISK_BIAS_PCT: 20.0,
-                CONF_RAMP_START_AFTER_MINUTES: 30,
-                CONF_RAMP_DURATION_MINUTES: 90,
-                CONF_CURVE: CURVE_LINEAR,
-            },
-        )
-        assert mode_switch_result["type"] == FlowResultType.FORM
-        assert mode_switch_result["errors"] == {
-            CONF_BASIS_BIAS_ENTITY: "entity_required"
-        }
-        result = await hass.config_entries.flow.async_configure(
-            mode_switch_result["flow_id"],
-            {
-                CONF_NAME: "Risk Helper",
-                CONF_RISK_SOURCE_ENTITY: "sensor.risk_forecast",
-                CONF_BASIS_BIAS_SOURCE: BIAS_SOURCE_ENTITY,
-                CONF_BASIS_BIAS_ENTITY: "input_number.bias",
-                CONF_RISK_BIAS_SOURCE: BIAS_SOURCE_CONSTANT,
-                CONF_RISK_BIAS_PCT: 20.0,
-                CONF_RAMP_START_AFTER_MINUTES: 30,
-                CONF_RAMP_DURATION_MINUTES: 90,
-                CONF_CURVE: CURVE_LINEAR,
-            },
-        )
-        expected_error = {CONF_BASIS_BIAS_ENTITY: "entity_not_number"}
+    form_data = {
+        CONF_NAME: "Risk Helper",
+        CONF_RISK_SOURCE_ENTITY: "sensor.risk_forecast",
+        CONF_BASIS_BIAS_INPUT: {
+            "active_choice": BIAS_SOURCE_ENTITY,
+            BIAS_SOURCE_ENTITY: "input_number.bias",
+        },
+        CONF_RISK_BIAS_INPUT: {
+            "active_choice": BIAS_SOURCE_CONSTANT,
+            BIAS_SOURCE_CONSTANT: 20.0,
+        },
+        CONF_RAMP_START_AFTER_MINUTES: 30,
+        CONF_RAMP_DURATION_MINUTES: 90,
+        CONF_CURVE: CURVE_LINEAR,
+    }
+    expected_error = {CONF_BASIS_BIAS_INPUT: "entity_not_number"}
+    result = await hass.config_entries.flow.async_configure(
+        kind_result["flow_id"],
+        form_data,
+    )
 
     assert result["type"] == FlowResultType.FORM
     assert result["errors"] == expected_error

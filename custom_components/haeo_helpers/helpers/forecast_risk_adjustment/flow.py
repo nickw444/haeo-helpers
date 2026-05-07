@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from numbers import Real
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Final
 
 import voluptuous as vol
 from homeassistant.const import CONF_NAME, STATE_UNAVAILABLE, STATE_UNKNOWN
@@ -38,61 +38,27 @@ if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
 
-try:
-    from homeassistant.helpers.selector import (
-        ChooseSelector,
-        ChooseSelectorChoiceConfig,
-        ChooseSelectorConfig,
-    )
-
-    _HAS_CHOOSE_SELECTOR = True
-except ImportError:  # pragma: no cover - depends on HA core version
-    _HAS_CHOOSE_SELECTOR = False
-
-    ChooseSelector = Any  # type: ignore[assignment, misc]
-    ChooseSelectorChoiceConfig = Any  # type: ignore[assignment, misc]
-    ChooseSelectorConfig = Any  # type: ignore[assignment, misc]
-
 
 CONF_BASIS_BIAS_INPUT = "basis_bias_input"
 CONF_RISK_BIAS_INPUT = "risk_bias_input"
 
-
-if _HAS_CHOOSE_SELECTOR:
-
-    class _NormalizingChooseSelector(ChooseSelector):
-        """Choose selector wrapper that accepts raw frontend payloads."""
-
-        def __call__(self, data: Any) -> Any:
-            """Normalize payload before choose-selector validation."""
-            return super().__call__(self._normalize(data))  # type: ignore[misc]
-
-        def _normalize(self, value: Any) -> Any:
-            """Convert active-choice payload into nested selector value."""
-            if not isinstance(value, dict) or "active_choice" not in value:
-                return value
-
-            choice = value.get("active_choice")
-            if choice == BIAS_SOURCE_ENTITY:
-                return value.get(BIAS_SOURCE_ENTITY)
-            if choice == BIAS_SOURCE_CONSTANT:
-                return value.get(BIAS_SOURCE_CONSTANT)
-            return value
+BIAS_INPUT_KEYS: Final[dict[str, tuple[str, str, str]]] = {
+    CONF_BASIS_BIAS_INPUT: (
+        CONF_BASIS_BIAS_SOURCE,
+        CONF_BASIS_BIAS_PCT,
+        CONF_BASIS_BIAS_ENTITY,
+    ),
+    CONF_RISK_BIAS_INPUT: (
+        CONF_RISK_BIAS_SOURCE,
+        CONF_RISK_BIAS_PCT,
+        CONF_RISK_BIAS_ENTITY,
+    ),
+}
 
 
 def _has_forecast_attribute(entity_state: Any) -> bool:
     """Return True if a state looks like a forecast source."""
     return isinstance(entity_state.attributes.get(ATTR_FORECAST), list)
-
-
-def _required_entity_marker(
-    key: str,
-    current: dict[str, Any],
-) -> vol.Marker:
-    """Build a required entity marker with default if available."""
-    if current.get(key):
-        return vol.Required(key, default=current[key])
-    return vol.Required(key)
 
 
 def _required_source_entity_marker(current: dict[str, Any]) -> vol.Marker:
@@ -103,42 +69,6 @@ def _required_source_entity_marker(current: dict[str, Any]) -> vol.Marker:
             default=current[CONF_SOURCE_ENTITY],
         )
     return vol.Required(CONF_SOURCE_ENTITY)
-
-
-def _required_bias_pct_marker(
-    key: str,
-    current: dict[str, Any],
-    default_value: float,
-) -> vol.Marker:
-    """Build a required constant bias marker with default fallback."""
-    return vol.Required(
-        key,
-        default=current.get(key, default_value),
-    )
-
-
-def supports_choose_selector() -> bool:
-    """Return whether the runtime supports HA's ChooseSelector."""
-    return _HAS_CHOOSE_SELECTOR
-
-
-def _bias_source_selector() -> selector.SelectSelector:
-    """Build a source selector with HAEO-like list rendering."""
-    return selector.SelectSelector(
-        selector.SelectSelectorConfig(
-            options=[
-                selector.SelectOptionDict(
-                    value=BIAS_SOURCE_ENTITY,
-                    label="Entity",
-                ),
-                selector.SelectOptionDict(
-                    value=BIAS_SOURCE_CONSTANT,
-                    label="Constant",
-                ),
-            ],
-            mode=selector.SelectSelectorMode.LIST,
-        ),
-    )
 
 
 def _bias_entity_selector() -> selector.EntitySelector:
@@ -164,12 +94,24 @@ def _bias_pct_selector() -> selector.NumberSelector:
 def _bias_input_default(
     current: dict[str, Any],
     *,
-    source_key: str,
-    pct_key: str,
-    entity_key: str,
+    field_key: str,
     default_pct: float,
 ) -> Any:
     """Build default value for choose-selector input."""
+    source_key, pct_key, entity_key = BIAS_INPUT_KEYS[field_key]
+    value = current.get(field_key)
+    if isinstance(value, dict):
+        choice = value.get("active_choice")
+        choice_value = value.get(choice)
+        if choice == BIAS_SOURCE_ENTITY:
+            if isinstance(choice_value, str):
+                return choice_value
+            return current.get(entity_key, current.get(pct_key, default_pct))
+        if choice == BIAS_SOURCE_CONSTANT:
+            if isinstance(choice_value, Real) and not isinstance(choice_value, bool):
+                return choice_value
+            return current.get(pct_key, default_pct)
+
     source = current.get(source_key, BIAS_SOURCE_CONSTANT)
     if source == BIAS_SOURCE_ENTITY and current.get(entity_key):
         return current[entity_key]
@@ -178,33 +120,28 @@ def _bias_input_default(
 
 def _build_bias_choose_selector(
     preferred_source: str,
-) -> Any:
-    """Build HAEO-style choose selector for entity-vs-constant input."""
-    entity_selector = _bias_entity_selector()
-    constant_selector = _bias_pct_selector()
-    entity_choice = ChooseSelectorChoiceConfig(
-        selector=entity_selector.serialize()["selector"],
-    )
-    constant_choice = ChooseSelectorChoiceConfig(
-        selector=constant_selector.serialize()["selector"],
-    )
-
+) -> selector.ChooseSelector:
+    """Build choose selector for entity-vs-constant input."""
     choice_order = [BIAS_SOURCE_ENTITY, BIAS_SOURCE_CONSTANT]
     if preferred_source in choice_order:
         choice_order.remove(preferred_source)
         choice_order.insert(0, preferred_source)
 
-    choice_map = {
-        BIAS_SOURCE_ENTITY: entity_choice,
-        BIAS_SOURCE_CONSTANT: constant_choice,
+    choice_map: dict[str, selector.ChooseSelectorChoiceConfig] = {
+        BIAS_SOURCE_ENTITY: selector.ChooseSelectorChoiceConfig(
+            selector=_bias_entity_selector().serialize()["selector"],
+        ),
+        BIAS_SOURCE_CONSTANT: selector.ChooseSelectorChoiceConfig(
+            selector=_bias_pct_selector().serialize()["selector"],
+        ),
     }
     choices = {key: choice_map[key] for key in choice_order}
 
-    return _NormalizingChooseSelector(
-        ChooseSelectorConfig(
+    return selector.ChooseSelector(
+        selector.ChooseSelectorConfig(
             choices=choices,
             translation_key="input_source",
-        )
+        ),
     )
 
 
@@ -228,65 +165,26 @@ def build_schema(current: dict[str, Any] | None = None) -> vol.Schema:
             selector.EntitySelectorConfig(domain=["sensor"]),
         ),
     }
-
-    if supports_choose_selector():
-        schema_dict[
-            vol.Required(
-                CONF_BASIS_BIAS_INPUT,
-                default=_bias_input_default(
-                    current,
-                    source_key=CONF_BASIS_BIAS_SOURCE,
-                    pct_key=CONF_BASIS_BIAS_PCT,
-                    entity_key=CONF_BASIS_BIAS_ENTITY,
-                    default_pct=DEFAULT_BASIS_BIAS_PCT,
-                ),
-            )
-        ] = _build_bias_choose_selector(basis_source)
-        schema_dict[
-            vol.Required(
-                CONF_RISK_BIAS_INPUT,
-                default=_bias_input_default(
-                    current,
-                    source_key=CONF_RISK_BIAS_SOURCE,
-                    pct_key=CONF_RISK_BIAS_PCT,
-                    entity_key=CONF_RISK_BIAS_ENTITY,
-                    default_pct=DEFAULT_RISK_BIAS_PCT,
-                ),
-            )
-        ] = _build_bias_choose_selector(risk_source)
-    else:
-        schema_dict[vol.Required(CONF_BASIS_BIAS_SOURCE, default=basis_source)] = (
-            _bias_source_selector()
+    schema_dict[
+        vol.Required(
+            CONF_BASIS_BIAS_INPUT,
+            default=_bias_input_default(
+                current,
+                field_key=CONF_BASIS_BIAS_INPUT,
+                default_pct=DEFAULT_BASIS_BIAS_PCT,
+            ),
         )
-
-        if basis_source == BIAS_SOURCE_ENTITY:
-            schema_dict[_required_entity_marker(CONF_BASIS_BIAS_ENTITY, current)] = (
-                _bias_entity_selector()
-            )
-        else:
-            schema_dict[
-                _required_bias_pct_marker(
-                    CONF_BASIS_BIAS_PCT,
-                    current,
-                    DEFAULT_BASIS_BIAS_PCT,
-                )
-            ] = _bias_pct_selector()
-
-        schema_dict[vol.Required(CONF_RISK_BIAS_SOURCE, default=risk_source)] = (
-            _bias_source_selector()
+    ] = _build_bias_choose_selector(basis_source)
+    schema_dict[
+        vol.Required(
+            CONF_RISK_BIAS_INPUT,
+            default=_bias_input_default(
+                current,
+                field_key=CONF_RISK_BIAS_INPUT,
+                default_pct=DEFAULT_RISK_BIAS_PCT,
+            ),
         )
-        if risk_source == BIAS_SOURCE_ENTITY:
-            schema_dict[_required_entity_marker(CONF_RISK_BIAS_ENTITY, current)] = (
-                _bias_entity_selector()
-            )
-        else:
-            schema_dict[
-                _required_bias_pct_marker(
-                    CONF_RISK_BIAS_PCT,
-                    current,
-                    DEFAULT_RISK_BIAS_PCT,
-                )
-            ] = _bias_pct_selector()
+    ] = _build_bias_choose_selector(risk_source)
 
     schema_dict.update(
         {
@@ -340,33 +238,6 @@ def build_schema(current: dict[str, Any] | None = None) -> vol.Schema:
     return vol.Schema(schema_dict)
 
 
-def _validate_bias_source(
-    hass: HomeAssistant,
-    user_input: dict[str, Any],
-    source_key: str,
-    constant_key: str,
-    entity_key: str,
-) -> dict[str, str]:
-    """Validate a bias source selector pair."""
-    mode = user_input[source_key]
-    if mode == BIAS_SOURCE_CONSTANT:
-        if constant_key not in user_input:
-            return {constant_key: "value_required"}
-        return {}
-
-    if mode != BIAS_SOURCE_ENTITY:
-        return {}
-
-    entity_id = user_input.get(entity_key)
-    if not entity_id:
-        return {entity_key: "entity_required"}
-
-    entity_error = _validate_numeric_entity_state(hass, entity_id)
-    if entity_error:
-        return {entity_key: entity_error}
-    return {}
-
-
 def _validate_numeric_entity_state(
     hass: HomeAssistant,
     entity_id: str,
@@ -393,20 +264,45 @@ def _resolve_choose_bias(
     default_pct: float,
 ) -> tuple[str, float, str | None, str | None]:
     """Resolve choose-selector value to source mode and payload."""
-    if isinstance(value, list):
-        if len(value) != 1 or not isinstance(value[0], str):
-            return "", default_pct, None, "entity_required"
-        value = value[0]
+    source = ""
+    pct = default_pct
+    entity: str | None = None
+    source_error = "value_required"
+
+    if isinstance(value, dict):
+        choice = value.get("active_choice")
+        selected_value = value.get(choice)
+        if choice == BIAS_SOURCE_ENTITY:
+            if isinstance(selected_value, str) and selected_value:
+                source = BIAS_SOURCE_ENTITY
+                entity = selected_value
+                source_error = ""
+            else:
+                source_error = "entity_required"
+        elif choice == BIAS_SOURCE_CONSTANT:
+            if isinstance(selected_value, Real) and not isinstance(
+                selected_value, bool
+            ):
+                source = BIAS_SOURCE_CONSTANT
+                pct = float(selected_value)
+                source_error = ""
+        else:
+            source_error = "value_required"
 
     if isinstance(value, str):
         if not value:
-            return "", default_pct, None, "entity_required"
-        return BIAS_SOURCE_ENTITY, default_pct, value, None
+            source_error = "entity_required"
+        else:
+            source = BIAS_SOURCE_ENTITY
+            entity = value
+            source_error = ""
 
-    if isinstance(value, Real) and not isinstance(value, bool):
-        return BIAS_SOURCE_CONSTANT, float(value), None, None
+    elif isinstance(value, Real) and not isinstance(value, bool):
+        source = BIAS_SOURCE_CONSTANT
+        pct = float(value)
+        source_error = ""
 
-    return "", default_pct, None, "value_required"
+    return source, pct, entity, source_error
 
 
 def _validate_choose_bias(
@@ -446,99 +342,43 @@ def validate_user_input(
         return {CONF_SOURCE_ENTITY: "entity_not_forecast"}
 
     errors: dict[str, str] = {}
-    if supports_choose_selector() and (
-        CONF_BASIS_BIAS_INPUT in user_input or CONF_RISK_BIAS_INPUT in user_input
-    ):
-        basis_errors, _ = _validate_choose_bias(
-            hass,
-            field_key=CONF_BASIS_BIAS_INPUT,
-            value=user_input.get(CONF_BASIS_BIAS_INPUT),
-            default_pct=DEFAULT_BASIS_BIAS_PCT,
-        )
-        risk_errors, _ = _validate_choose_bias(
-            hass,
-            field_key=CONF_RISK_BIAS_INPUT,
-            value=user_input.get(CONF_RISK_BIAS_INPUT),
-            default_pct=DEFAULT_RISK_BIAS_PCT,
-        )
-        errors.update(basis_errors)
-        errors.update(risk_errors)
-        return errors
-
-    errors.update(
-        _validate_bias_source(
-            hass,
-            user_input,
-            CONF_BASIS_BIAS_SOURCE,
-            CONF_BASIS_BIAS_PCT,
-            CONF_BASIS_BIAS_ENTITY,
-        )
+    basis_errors, _ = _validate_choose_bias(
+        hass,
+        field_key=CONF_BASIS_BIAS_INPUT,
+        value=user_input.get(CONF_BASIS_BIAS_INPUT),
+        default_pct=DEFAULT_BASIS_BIAS_PCT,
     )
-    errors.update(
-        _validate_bias_source(
-            hass,
-            user_input,
-            CONF_RISK_BIAS_SOURCE,
-            CONF_RISK_BIAS_PCT,
-            CONF_RISK_BIAS_ENTITY,
-        )
+    risk_errors, _ = _validate_choose_bias(
+        hass,
+        field_key=CONF_RISK_BIAS_INPUT,
+        value=user_input.get(CONF_RISK_BIAS_INPUT),
+        default_pct=DEFAULT_RISK_BIAS_PCT,
     )
+    errors.update(basis_errors)
+    errors.update(risk_errors)
 
     return errors
 
 
 def normalize_user_input(user_input: dict[str, Any]) -> dict[str, Any]:
     """Normalize form input into persisted entry data/options."""
-    if supports_choose_selector() and (
-        CONF_BASIS_BIAS_INPUT in user_input or CONF_RISK_BIAS_INPUT in user_input
-    ):
-        basis_source, basis_pct, basis_entity, _ = _resolve_choose_bias(
-            value=user_input.get(CONF_BASIS_BIAS_INPUT),
-            default_pct=DEFAULT_BASIS_BIAS_PCT,
-        )
-        risk_source, risk_pct, risk_entity, _ = _resolve_choose_bias(
-            value=user_input.get(CONF_RISK_BIAS_INPUT),
-            default_pct=DEFAULT_RISK_BIAS_PCT,
-        )
-
-        return {
-            CONF_SOURCE_ENTITY: user_input[CONF_SOURCE_ENTITY],
-            CONF_BASIS_BIAS_SOURCE: basis_source or DEFAULT_BASIS_BIAS_SOURCE,
-            CONF_BASIS_BIAS_PCT: basis_pct,
-            CONF_BASIS_BIAS_ENTITY: basis_entity,
-            CONF_RISK_BIAS_SOURCE: risk_source or DEFAULT_RISK_BIAS_SOURCE,
-            CONF_RISK_BIAS_PCT: risk_pct,
-            CONF_RISK_BIAS_ENTITY: risk_entity,
-            CONF_RAMP_START_AFTER_MINUTES: int(
-                user_input[CONF_RAMP_START_AFTER_MINUTES]
-            ),
-            CONF_RAMP_DURATION_MINUTES: int(user_input[CONF_RAMP_DURATION_MINUTES]),
-            CONF_CURVE: user_input[CONF_CURVE],
-        }
-
-    basis_source = user_input[CONF_BASIS_BIAS_SOURCE]
-    risk_source = user_input[CONF_RISK_BIAS_SOURCE]
+    basis_source, basis_pct, basis_entity, _ = _resolve_choose_bias(
+        value=user_input.get(CONF_BASIS_BIAS_INPUT),
+        default_pct=DEFAULT_BASIS_BIAS_PCT,
+    )
+    risk_source, risk_pct, risk_entity, _ = _resolve_choose_bias(
+        value=user_input.get(CONF_RISK_BIAS_INPUT),
+        default_pct=DEFAULT_RISK_BIAS_PCT,
+    )
 
     return {
         CONF_SOURCE_ENTITY: user_input[CONF_SOURCE_ENTITY],
-        CONF_BASIS_BIAS_SOURCE: basis_source,
-        CONF_BASIS_BIAS_PCT: float(
-            user_input.get(CONF_BASIS_BIAS_PCT, DEFAULT_BASIS_BIAS_PCT)
-        ),
-        CONF_BASIS_BIAS_ENTITY: (
-            user_input.get(CONF_BASIS_BIAS_ENTITY)
-            if basis_source == BIAS_SOURCE_ENTITY
-            else None
-        ),
-        CONF_RISK_BIAS_SOURCE: risk_source,
-        CONF_RISK_BIAS_PCT: float(
-            user_input.get(CONF_RISK_BIAS_PCT, DEFAULT_RISK_BIAS_PCT)
-        ),
-        CONF_RISK_BIAS_ENTITY: (
-            user_input.get(CONF_RISK_BIAS_ENTITY)
-            if risk_source == BIAS_SOURCE_ENTITY
-            else None
-        ),
+        CONF_BASIS_BIAS_SOURCE: basis_source or DEFAULT_BASIS_BIAS_SOURCE,
+        CONF_BASIS_BIAS_PCT: basis_pct,
+        CONF_BASIS_BIAS_ENTITY: basis_entity,
+        CONF_RISK_BIAS_SOURCE: risk_source or DEFAULT_RISK_BIAS_SOURCE,
+        CONF_RISK_BIAS_PCT: risk_pct,
+        CONF_RISK_BIAS_ENTITY: risk_entity,
         CONF_RAMP_START_AFTER_MINUTES: int(user_input[CONF_RAMP_START_AFTER_MINUTES]),
         CONF_RAMP_DURATION_MINUTES: int(user_input[CONF_RAMP_DURATION_MINUTES]),
         CONF_CURVE: user_input[CONF_CURVE],
