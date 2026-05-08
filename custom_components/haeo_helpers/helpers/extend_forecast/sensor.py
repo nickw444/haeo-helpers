@@ -229,7 +229,7 @@ class ExtendForecastSensor(SensorEntity):
             history_entries=context.history_entries,
         )
 
-        current_time = context.source_end
+        current_time = max(context.source_end, context.reference_now)
         projected_value = context.fill_value
         while current_time < target_end:
             bucket_index = (
@@ -277,10 +277,15 @@ class ExtendForecastSensor(SensorEntity):
 
             current = start
             while current < end:
-                interval_start_minute = (
-                    current.minute // interval_minutes
+                current_minute_of_day = (current.hour * 60) + current.minute
+                interval_start_minute_of_day = (
+                    current_minute_of_day // interval_minutes
                 ) * interval_minutes
+                interval_start_hour, interval_start_minute = divmod(
+                    interval_start_minute_of_day, 60
+                )
                 interval_start = current.replace(
+                    hour=interval_start_hour,
                     minute=interval_start_minute,
                     second=0,
                     microsecond=0,
@@ -350,7 +355,7 @@ def _history_entries(
         return []
 
     entries.sort(key=lambda item: item[0])
-    tz = entries[0][0].tzinfo or reference_now.tzinfo or UTC
+    tz = reference_now.tzinfo or UTC
     normalized: list[tuple[datetime, float]] = []
     for timestamp, value in entries:
         normalized_timestamp = (
@@ -414,9 +419,9 @@ def _parse_point_time(raw_time: Any, reference_now: datetime) -> datetime | None
         return None
 
     if parsed.tzinfo is None:
-        return parsed.replace(tzinfo=reference_now.tzinfo)
+        return parsed.replace(tzinfo=reference_now.tzinfo or UTC)
 
-    return parsed
+    return parsed.astimezone(reference_now.tzinfo or UTC)
 
 
 def _parse_numeric_value(raw_value: Any) -> float | None:
