@@ -13,8 +13,16 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from custom_components.haeo_helpers.const import (
     CONF_HELPER_KIND,
     DOMAIN,
+    HELPER_KIND_EXTEND_FORECAST,
     HELPER_KIND_FORECAST_RISK_ADJUSTMENT,
     HELPER_KIND_FORECAST_STATISTIC,
+)
+from custom_components.haeo_helpers.helpers.extend_forecast.const import (
+    CONF_FORECAST_HORIZON_HOURS,
+    CONF_HISTORY_DAYS,
+)
+from custom_components.haeo_helpers.helpers.extend_forecast.const import (
+    CONF_SOURCE_ENTITY as CONF_EXTEND_SOURCE_ENTITY,
 )
 from custom_components.haeo_helpers.helpers.forecast_risk_adjustment.const import (
     BIAS_SOURCE_CONSTANT,
@@ -278,6 +286,45 @@ async def test_risk_form_requires_entity_when_entity_choice_is_selected(
                 CONF_CURVE: CURVE_LINEAR,
             },
         )
+
+
+async def test_create_extend_forecast_happy_path(
+    hass,
+    forecast_points_factory,
+    source_state_factory,
+):
+    """Creating an extend-forecast helper succeeds for a forecast source."""
+    source_state_factory(
+        "sensor.extend_forecast_source",
+        state="12.5",
+        forecast=forecast_points_factory([(0, 10.0), (60, 11.0)]),
+    )
+
+    init_result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": "user"},
+    )
+    kind_result = await hass.config_entries.flow.async_configure(
+        init_result["flow_id"],
+        {CONF_HELPER_KIND: HELPER_KIND_EXTEND_FORECAST},
+    )
+
+    assert kind_result["type"] == FlowResultType.FORM
+    assert kind_result["step_id"] == HELPER_KIND_EXTEND_FORECAST
+
+    create_result = await hass.config_entries.flow.async_configure(
+        kind_result["flow_id"],
+        {
+            CONF_NAME: "Extend Helper",
+            CONF_EXTEND_SOURCE_ENTITY: "sensor.extend_forecast_source",
+            CONF_FORECAST_HORIZON_HOURS: 48,
+            CONF_HISTORY_DAYS: 7,
+        },
+    )
+
+    assert create_result["type"] == FlowResultType.CREATE_ENTRY
+    assert create_result["title"] == "Extend Helper"
+    assert create_result["data"][CONF_HELPER_KIND] == HELPER_KIND_EXTEND_FORECAST
 
 
 async def test_create_rejects_missing_forecast_source(hass):
