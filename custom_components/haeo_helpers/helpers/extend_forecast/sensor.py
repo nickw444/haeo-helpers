@@ -233,9 +233,8 @@ class ExtendForecastSensor(SensorEntity):
         projected_value = context.fill_value
         while current_time < target_end:
             bucket_index = (
-                ((current_time.hour * 60) + current_time.minute)
-                // context.interval_minutes
-            )
+                (current_time.hour * 60) + current_time.minute
+            ) // context.interval_minutes
             bucket_value = projection_profile[bucket_index]
             if bucket_value is None:
                 bucket_value = projected_value
@@ -279,8 +278,8 @@ class ExtendForecastSensor(SensorEntity):
             current = start
             while current < end:
                 interval_start_minute = (
-                    (current.minute // interval_minutes) * interval_minutes
-                )
+                    current.minute // interval_minutes
+                ) * interval_minutes
                 interval_start = current.replace(
                     minute=interval_start_minute,
                     second=0,

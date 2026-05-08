@@ -119,9 +119,7 @@ def options_defaults_from_entry(entry: ConfigEntry) -> dict[str, Any]:
         ),
         CONF_FORECAST_HORIZON_HOURS: entry.options.get(
             CONF_FORECAST_HORIZON_HOURS,
-            entry.data.get(
-                CONF_FORECAST_HORIZON_HOURS, DEFAULT_FORECAST_HORIZON_HOURS
-            ),
+            entry.data.get(CONF_FORECAST_HORIZON_HOURS, DEFAULT_FORECAST_HORIZON_HOURS),
         ),
         CONF_HISTORY_DAYS: entry.options.get(
             CONF_HISTORY_DAYS,
