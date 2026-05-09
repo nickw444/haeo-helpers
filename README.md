@@ -15,12 +15,14 @@ Helper | Use case
 Forecast Statistic | Reduce a source sensor's `forecast` attribute to one representative value using percentile or mean aggregation. This replicates the Energy Assistant median-style terminal planning behavior.
 Forecast Risk Adjustment | Create a risk-adjusted forecast by applying a baseline bias and a ramped future-risk bias to each forecast point. This replicates the Energy Assistant `grid_price_bias_pct` and `grid_price_risk` behavior.
 Extend Forecast | Extend a short forecast sensor to a longer planning horizon by appending history-backed projected points while preserving the source sensor's current state and non-forecast attributes.
+Realtime Forecast Smoothing | Smooth a realtime sensor value into a forecast for a configured near-term window, tapering back to the source forecast.
 
 See the helper-specific README files for details:
 
 - [Forecast Statistic](custom_components/haeo_helpers/helpers/forecast_statistic/README.md)
 - [Forecast Risk Adjustment](custom_components/haeo_helpers/helpers/forecast_risk_adjustment/README.md)
 - [Extend Forecast](custom_components/haeo_helpers/helpers/extend_forecast/README.md)
+- [Realtime Forecast Smoothing](custom_components/haeo_helpers/helpers/realtime_forecast_smoothing/README.md)
 
 ## Project Layout
 
