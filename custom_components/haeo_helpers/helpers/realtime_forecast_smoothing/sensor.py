@@ -208,12 +208,13 @@ class RealtimeForecastSmoothingSensor(SensorEntity):
             interval_duration=interval_duration,
         )
 
-        smoothed_forecast: list[dict[str, Any]] = []
+        smoothed_forecast: list[Any] = []
         closest_value: float | None = None
         closest_diff: float | None = None
 
         for point in source_forecast:
             if not isinstance(point, dict):
+                smoothed_forecast.append(point)
                 continue
 
             smoothed_point = dict(point)

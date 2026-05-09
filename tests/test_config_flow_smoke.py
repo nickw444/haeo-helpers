@@ -378,6 +378,41 @@ async def test_create_realtime_forecast_smoothing_happy_path(
     )
 
 
+async def test_realtime_forecast_smoothing_rejects_non_finite_realtime_source(
+    hass,
+    forecast_points_factory,
+    source_state_factory,
+):
+    """Realtime smoothing flow rejects non-finite realtime states."""
+    source_state_factory(
+        "sensor.smoothing_forecast",
+        forecast=forecast_points_factory([(0, 1.0), (30, 0.5)]),
+    )
+    hass.states.async_set("sensor.smoothing_realtime", "nan", {})
+
+    init_result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": "user"},
+    )
+    kind_result = await hass.config_entries.flow.async_configure(
+        init_result["flow_id"],
+        {CONF_HELPER_KIND: HELPER_KIND_REALTIME_FORECAST_SMOOTHING},
+    )
+
+    result = await hass.config_entries.flow.async_configure(
+        kind_result["flow_id"],
+        {
+            CONF_NAME: "Realtime Smoothing",
+            CONF_FORECAST_ENTITY: "sensor.smoothing_forecast",
+            CONF_REALTIME_ENTITY: "sensor.smoothing_realtime",
+            CONF_SMOOTHING_WINDOW_MINUTES: 180,
+        },
+    )
+
+    assert result["type"] == FlowResultType.FORM
+    assert result["errors"] == {CONF_REALTIME_ENTITY: "entity_not_number"}
+
+
 async def test_create_rejects_missing_forecast_source(hass):
     """Create flow errors when source entity does not exist."""
     init_result = await hass.config_entries.flow.async_init(

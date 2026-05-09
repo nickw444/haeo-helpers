@@ -120,6 +120,7 @@ async def test_invalid_forecast_points_are_preserved(
     source_state_factory(
         "sensor.smoothing_forecast",
         forecast=[
+            "unexpected",
             {"time": "not-a-time", "value": 1.0},
             {"time": forecast_points_factory([(0, 1.0)])[0]["time"], "value": "bad"},
             forecast_points_factory([(30, 0.5)])[0],
@@ -130,9 +131,10 @@ async def test_invalid_forecast_points_are_preserved(
 
     forecast = sensor.extra_state_attributes[ATTR_FORECAST]
 
-    assert forecast[0] == {"time": "not-a-time", "value": 1.0}
-    assert forecast[1]["value"] == "bad"
-    assert forecast[2]["value"] == pytest.approx(3.4166666667, rel=1e-6, abs=1e-6)
+    assert forecast[0] == "unexpected"
+    assert forecast[1] == {"time": "not-a-time", "value": 1.0}
+    assert forecast[2]["value"] == "bad"
+    assert forecast[3]["value"] == pytest.approx(3.4166666667, rel=1e-6, abs=1e-6)
 
 
 async def test_available_false_when_realtime_source_is_not_numeric(

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from typing import TYPE_CHECKING, Any
 
 import voluptuous as vol
@@ -33,11 +34,11 @@ def _has_numeric_state(entity_state: Any) -> bool:
         return False
 
     try:
-        float(entity_state.state)
+        value = float(entity_state.state)
     except (TypeError, ValueError):
         return False
 
-    return True
+    return math.isfinite(value)
 
 
 def build_schema(current: dict[str, Any] | None = None) -> vol.Schema:
