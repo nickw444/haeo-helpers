@@ -48,6 +48,16 @@
                     "forecast_horizon_hours": "Forecast horizon (hours)",
                     "history_days": "History lookback (days)"
                 }
+            },
+            "realtime_forecast_smoothing": {
+                "title": "Create realtime forecast smoothing helper",
+                "description": "Smooth a realtime sensor value into a forecast.",
+                "data": {
+                    "name": "Helper name",
+                    "forecast_entity": "Forecast source sensor",
+                    "realtime_entity": "Realtime source sensor",
+                    "smoothing_window_minutes": "Smoothing window (minutes)"
+                }
             }
         },
         "abort": {
@@ -98,6 +108,15 @@
                     "source_entity": "Forecast source sensor",
                     "forecast_horizon_hours": "Forecast horizon (hours)",
                     "history_days": "History lookback (days)"
+                }
+            },
+            "realtime_forecast_smoothing": {
+                "title": "Edit realtime forecast smoothing helper",
+                "data": {
+                    "name": "Helper name",
+                    "forecast_entity": "Forecast source sensor",
+                    "realtime_entity": "Realtime source sensor",
+                    "smoothing_window_minutes": "Smoothing window (minutes)"
                 }
             }
         },

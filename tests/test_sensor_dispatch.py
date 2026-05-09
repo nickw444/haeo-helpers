@@ -13,6 +13,7 @@ from custom_components.haeo_helpers.const import (
     HELPER_KIND_EXTEND_FORECAST,
     HELPER_KIND_FORECAST_RISK_ADJUSTMENT,
     HELPER_KIND_FORECAST_STATISTIC,
+    HELPER_KIND_REALTIME_FORECAST_SMOOTHING,
 )
 from custom_components.haeo_helpers.sensor import (
     SENSOR_SETUP_BY_HELPER_KIND,
@@ -76,6 +77,30 @@ async def test_sensor_dispatch_calls_extend_forecast_setup(hass, monkeypatch):
         title="Dispatch",
         data={CONF_HELPER_KIND: HELPER_KIND_EXTEND_FORECAST},
         entry_id="dispatch_extend",
+    )
+
+    async_add_entities = AsyncMock()
+    await async_setup_entry(hass, entry, async_add_entities)
+
+    setup_mock.assert_awaited_once_with(hass, entry, async_add_entities)
+
+
+async def test_sensor_dispatch_calls_realtime_forecast_smoothing_setup(
+    hass, monkeypatch
+):
+    """Dispatch routes realtime-smoothing helper entries to smoothing setup."""
+    setup_mock = AsyncMock()
+    monkeypatch.setitem(
+        SENSOR_SETUP_BY_HELPER_KIND,
+        HELPER_KIND_REALTIME_FORECAST_SMOOTHING,
+        setup_mock,
+    )
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Dispatch",
+        data={CONF_HELPER_KIND: HELPER_KIND_REALTIME_FORECAST_SMOOTHING},
+        entry_id="dispatch_smoothing",
     )
 
     async_add_entities = AsyncMock()

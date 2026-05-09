@@ -16,6 +16,7 @@ from custom_components.haeo_helpers.const import (
     HELPER_KIND_EXTEND_FORECAST,
     HELPER_KIND_FORECAST_RISK_ADJUSTMENT,
     HELPER_KIND_FORECAST_STATISTIC,
+    HELPER_KIND_REALTIME_FORECAST_SMOOTHING,
 )
 from custom_components.haeo_helpers.helpers.extend_forecast.const import (
     CONF_FORECAST_HORIZON_HOURS,
@@ -53,6 +54,11 @@ from custom_components.haeo_helpers.helpers.forecast_statistic.const import (
 )
 from custom_components.haeo_helpers.helpers.forecast_statistic.const import (
     CONF_SOURCE_ENTITY as CONF_STAT_SOURCE_ENTITY,
+)
+from custom_components.haeo_helpers.helpers.realtime_forecast_smoothing.const import (
+    CONF_FORECAST_ENTITY,
+    CONF_REALTIME_ENTITY,
+    CONF_SMOOTHING_WINDOW_MINUTES,
 )
 
 TRANSLATIONS_PATH = (
@@ -325,6 +331,86 @@ async def test_create_extend_forecast_happy_path(
     assert create_result["type"] == FlowResultType.CREATE_ENTRY
     assert create_result["title"] == "Extend Helper"
     assert create_result["data"][CONF_HELPER_KIND] == HELPER_KIND_EXTEND_FORECAST
+
+
+async def test_create_realtime_forecast_smoothing_happy_path(
+    hass,
+    forecast_points_factory,
+    source_state_factory,
+):
+    """Creating a realtime forecast smoothing helper succeeds."""
+    source_state_factory(
+        "sensor.smoothing_forecast",
+        state="1.0",
+        forecast=forecast_points_factory([(0, 1.0), (30, 0.5)]),
+    )
+    hass.states.async_set(
+        "sensor.smoothing_realtime", "4.0", {"unit_of_measurement": "kW"}
+    )
+
+    init_result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": "user"},
+    )
+    kind_result = await hass.config_entries.flow.async_configure(
+        init_result["flow_id"],
+        {CONF_HELPER_KIND: HELPER_KIND_REALTIME_FORECAST_SMOOTHING},
+    )
+
+    assert kind_result["type"] == FlowResultType.FORM
+    assert kind_result["step_id"] == HELPER_KIND_REALTIME_FORECAST_SMOOTHING
+
+    create_result = await hass.config_entries.flow.async_configure(
+        kind_result["flow_id"],
+        {
+            CONF_NAME: "Realtime Smoothing",
+            CONF_FORECAST_ENTITY: "sensor.smoothing_forecast",
+            CONF_REALTIME_ENTITY: "sensor.smoothing_realtime",
+            CONF_SMOOTHING_WINDOW_MINUTES: 180,
+        },
+    )
+
+    assert create_result["type"] == FlowResultType.CREATE_ENTRY
+    assert create_result["title"] == "Realtime Smoothing"
+    assert (
+        create_result["data"][CONF_HELPER_KIND]
+        == HELPER_KIND_REALTIME_FORECAST_SMOOTHING
+    )
+
+
+async def test_realtime_forecast_smoothing_rejects_non_finite_realtime_source(
+    hass,
+    forecast_points_factory,
+    source_state_factory,
+):
+    """Realtime smoothing flow rejects non-finite realtime states."""
+    source_state_factory(
+        "sensor.smoothing_forecast",
+        forecast=forecast_points_factory([(0, 1.0), (30, 0.5)]),
+    )
+    hass.states.async_set("sensor.smoothing_realtime", "nan", {})
+
+    init_result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": "user"},
+    )
+    kind_result = await hass.config_entries.flow.async_configure(
+        init_result["flow_id"],
+        {CONF_HELPER_KIND: HELPER_KIND_REALTIME_FORECAST_SMOOTHING},
+    )
+
+    result = await hass.config_entries.flow.async_configure(
+        kind_result["flow_id"],
+        {
+            CONF_NAME: "Realtime Smoothing",
+            CONF_FORECAST_ENTITY: "sensor.smoothing_forecast",
+            CONF_REALTIME_ENTITY: "sensor.smoothing_realtime",
+            CONF_SMOOTHING_WINDOW_MINUTES: 180,
+        },
+    )
+
+    assert result["type"] == FlowResultType.FORM
+    assert result["errors"] == {CONF_REALTIME_ENTITY: "entity_not_number"}
 
 
 async def test_create_rejects_missing_forecast_source(hass):

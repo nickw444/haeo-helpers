@@ -10,6 +10,7 @@ from .const import (
     HELPER_KIND_EXTEND_FORECAST,
     HELPER_KIND_FORECAST_RISK_ADJUSTMENT,
     HELPER_KIND_FORECAST_STATISTIC,
+    HELPER_KIND_REALTIME_FORECAST_SMOOTHING,
     LOGGER,
 )
 from .helpers.extend_forecast.sensor import async_setup_entry as setup_extend_forecast
@@ -18,6 +19,9 @@ from .helpers.forecast_risk_adjustment.sensor import (
 )
 from .helpers.forecast_statistic.sensor import (
     async_setup_entry as setup_forecast_statistic,
+)
+from .helpers.realtime_forecast_smoothing.sensor import (
+    async_setup_entry as setup_realtime_forecast_smoothing,
 )
 
 if TYPE_CHECKING:
@@ -36,6 +40,7 @@ SENSOR_SETUP_BY_HELPER_KIND: Final[dict[str, SensorSetupFunction]] = {
     HELPER_KIND_FORECAST_STATISTIC: setup_forecast_statistic,
     HELPER_KIND_FORECAST_RISK_ADJUSTMENT: setup_forecast_risk_adjustment,
     HELPER_KIND_EXTEND_FORECAST: setup_extend_forecast,
+    HELPER_KIND_REALTIME_FORECAST_SMOOTHING: setup_realtime_forecast_smoothing,
 }
 
 
