@@ -38,6 +38,16 @@
                     "ramp_duration_minutes": "Ramp duration (minutes)",
                     "curve": "Ramp curve"
                 }
+            },
+            "extend_forecast": {
+                "title": "Create extend forecast helper",
+                "description": "Extend a forecast sensor using historical state data.",
+                "data": {
+                    "name": "Helper name",
+                    "source_entity": "Forecast source sensor",
+                    "forecast_horizon_hours": "Forecast horizon (hours)",
+                    "history_days": "History lookback (days)"
+                }
             }
         },
         "abort": {
@@ -79,6 +89,15 @@
                     "ramp_start_after_minutes": "Ramp start after (minutes)",
                     "ramp_duration_minutes": "Ramp duration (minutes)",
                     "curve": "Ramp curve"
+                }
+            },
+            "extend_forecast": {
+                "title": "Edit extend forecast helper",
+                "data": {
+                    "name": "Helper name",
+                    "source_entity": "Forecast source sensor",
+                    "forecast_horizon_hours": "Forecast horizon (hours)",
+                    "history_days": "History lookback (days)"
                 }
             }
         },

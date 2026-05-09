@@ -7,10 +7,12 @@ from typing import TYPE_CHECKING, Final
 from .const import (
     CONF_HELPER_KIND,
     DEFAULT_HELPER_KIND,
+    HELPER_KIND_EXTEND_FORECAST,
     HELPER_KIND_FORECAST_RISK_ADJUSTMENT,
     HELPER_KIND_FORECAST_STATISTIC,
     LOGGER,
 )
+from .helpers.extend_forecast.sensor import async_setup_entry as setup_extend_forecast
 from .helpers.forecast_risk_adjustment.sensor import (
     async_setup_entry as setup_forecast_risk_adjustment,
 )
@@ -33,6 +35,7 @@ if TYPE_CHECKING:
 SENSOR_SETUP_BY_HELPER_KIND: Final[dict[str, SensorSetupFunction]] = {
     HELPER_KIND_FORECAST_STATISTIC: setup_forecast_statistic,
     HELPER_KIND_FORECAST_RISK_ADJUSTMENT: setup_forecast_risk_adjustment,
+    HELPER_KIND_EXTEND_FORECAST: setup_extend_forecast,
 }
 
 

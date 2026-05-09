@@ -13,9 +13,11 @@ from .const import (
     CONF_HELPER_KIND,
     DEFAULT_HELPER_KIND,
     DOMAIN,
+    HELPER_KIND_EXTEND_FORECAST,
     HELPER_KIND_FORECAST_RISK_ADJUSTMENT,
     HELPER_KIND_FORECAST_STATISTIC,
 )
+from .helpers.extend_forecast import flow as extend_forecast_flow
 from .helpers.forecast_risk_adjustment import flow as forecast_risk_adjustment_flow
 from .helpers.forecast_statistic import flow as forecast_statistic_flow
 
@@ -38,11 +40,16 @@ HELPER_KIND_OPTIONS: Final = [
         value=HELPER_KIND_FORECAST_RISK_ADJUSTMENT,
         label="Forecast Risk Adjustment",
     ),
+    selector.SelectOptionDict(
+        value=HELPER_KIND_EXTEND_FORECAST,
+        label="Extend Forecast",
+    ),
 ]
 
 BUILD_SCHEMA_BY_KIND: Final[dict[str, BuildSchemaFunction]] = {
     HELPER_KIND_FORECAST_STATISTIC: forecast_statistic_flow.build_schema,
     HELPER_KIND_FORECAST_RISK_ADJUSTMENT: forecast_risk_adjustment_flow.build_schema,
+    HELPER_KIND_EXTEND_FORECAST: extend_forecast_flow.build_schema,
 }
 
 VALIDATE_BY_KIND: Final[dict[str, ValidateInputFunction]] = {
@@ -50,6 +57,7 @@ VALIDATE_BY_KIND: Final[dict[str, ValidateInputFunction]] = {
     HELPER_KIND_FORECAST_RISK_ADJUSTMENT: (
         forecast_risk_adjustment_flow.validate_user_input
     ),
+    HELPER_KIND_EXTEND_FORECAST: extend_forecast_flow.validate_user_input,
 }
 
 NORMALIZE_BY_KIND: Final[dict[str, NormalizeInputFunction]] = {
@@ -57,6 +65,7 @@ NORMALIZE_BY_KIND: Final[dict[str, NormalizeInputFunction]] = {
     HELPER_KIND_FORECAST_RISK_ADJUSTMENT: (
         forecast_risk_adjustment_flow.normalize_user_input
     ),
+    HELPER_KIND_EXTEND_FORECAST: extend_forecast_flow.normalize_user_input,
 }
 
 OPTIONS_DEFAULTS_BY_KIND: Final[dict[str, BuildDefaultsFunction]] = {
@@ -64,6 +73,7 @@ OPTIONS_DEFAULTS_BY_KIND: Final[dict[str, BuildDefaultsFunction]] = {
     HELPER_KIND_FORECAST_RISK_ADJUSTMENT: (
         forecast_risk_adjustment_flow.options_defaults_from_entry
     ),
+    HELPER_KIND_EXTEND_FORECAST: extend_forecast_flow.options_defaults_from_entry,
 }
 
 
@@ -130,6 +140,9 @@ class HaeoHelpersConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if helper_kind == HELPER_KIND_FORECAST_RISK_ADJUSTMENT:
             return await self.async_step_forecast_risk_adjustment()
 
+        if helper_kind == HELPER_KIND_EXTEND_FORECAST:
+            return await self.async_step_extend_forecast()
+
         return self.async_abort(reason="unsupported_helper_kind")
 
     async def async_step_forecast_statistic(
@@ -149,6 +162,16 @@ class HaeoHelpersConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Configure a forecast risk adjustment helper."""
         return await self._async_step_helper_kind(
             HELPER_KIND_FORECAST_RISK_ADJUSTMENT,
+            user_input,
+        )
+
+    async def async_step_extend_forecast(
+        self,
+        user_input: dict[str, Any] | None = None,
+    ) -> config_entries.ConfigFlowResult:
+        """Configure an extend forecast helper."""
+        return await self._async_step_helper_kind(
+            HELPER_KIND_EXTEND_FORECAST,
             user_input,
         )
 
@@ -196,6 +219,9 @@ class HaeoHelpersOptionsFlow(config_entries.OptionsFlowWithConfigEntry):
         if helper_kind == HELPER_KIND_FORECAST_RISK_ADJUSTMENT:
             return await self.async_step_forecast_risk_adjustment(user_input)
 
+        if helper_kind == HELPER_KIND_EXTEND_FORECAST:
+            return await self.async_step_extend_forecast(user_input)
+
         return self.async_abort(reason="unsupported_helper_kind")
 
     async def async_step_forecast_statistic(
@@ -215,6 +241,16 @@ class HaeoHelpersOptionsFlow(config_entries.OptionsFlowWithConfigEntry):
         """Handle options for a forecast risk adjustment helper."""
         return await self._async_step_helper_kind(
             HELPER_KIND_FORECAST_RISK_ADJUSTMENT,
+            user_input,
+        )
+
+    async def async_step_extend_forecast(
+        self,
+        user_input: dict[str, Any] | None = None,
+    ) -> config_entries.ConfigFlowResult:
+        """Handle options for an extend forecast helper."""
+        return await self._async_step_helper_kind(
+            HELPER_KIND_EXTEND_FORECAST,
             user_input,
         )
 

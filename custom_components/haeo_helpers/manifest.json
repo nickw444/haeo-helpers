@@ -1,6 +1,9 @@
 {
   "domain": "haeo_helpers",
   "name": "HAEO Helpers",
+  "after_dependencies": [
+    "recorder"
+  ],
   "codeowners": [
     "@nickw444"
   ],

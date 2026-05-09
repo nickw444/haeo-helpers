@@ -10,6 +10,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from custom_components.haeo_helpers.const import (
     CONF_HELPER_KIND,
     DOMAIN,
+    HELPER_KIND_EXTEND_FORECAST,
     HELPER_KIND_FORECAST_RISK_ADJUSTMENT,
     HELPER_KIND_FORECAST_STATISTIC,
 )
@@ -53,6 +54,28 @@ async def test_sensor_dispatch_calls_forecast_risk_adjustment_setup(hass, monkey
         title="Dispatch",
         data={CONF_HELPER_KIND: HELPER_KIND_FORECAST_RISK_ADJUSTMENT},
         entry_id="dispatch_risk",
+    )
+
+    async_add_entities = AsyncMock()
+    await async_setup_entry(hass, entry, async_add_entities)
+
+    setup_mock.assert_awaited_once_with(hass, entry, async_add_entities)
+
+
+async def test_sensor_dispatch_calls_extend_forecast_setup(hass, monkeypatch):
+    """Dispatch routes extend-forecast helper entries to extend sensor setup."""
+    setup_mock = AsyncMock()
+    monkeypatch.setitem(
+        SENSOR_SETUP_BY_HELPER_KIND,
+        HELPER_KIND_EXTEND_FORECAST,
+        setup_mock,
+    )
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Dispatch",
+        data={CONF_HELPER_KIND: HELPER_KIND_EXTEND_FORECAST},
+        entry_id="dispatch_extend",
     )
 
     async_add_entities = AsyncMock()
