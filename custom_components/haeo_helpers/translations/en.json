@@ -61,13 +61,16 @@
             },
             "recent_days_forecast": {
                 "title": "Create recent days forecast helper",
-                "description": "Build a forecast from recent full-day recorder statistics. Recent bias controls how strongly newer days influence the average: 0% weights all days equally, 100% weights the newest day twice as strongly as the oldest day, and days in between are weighted linearly.",
+                "description": "Build a forecast from recent full-day recorder statistics.",
                 "data": {
                     "name": "Helper name",
                     "source_entity": "Source sensor",
                     "history_days": "History days",
                     "forecast_horizon_hours": "Forecast horizon (hours)",
                     "recent_bias_pct": "Recent bias percent"
+                },
+                "data_description": {
+                    "recent_bias_pct": "0% weights all days equally. 100% weights the newest day twice as strongly as the oldest day, with days in between weighted linearly."
                 }
             }
         },
@@ -132,13 +135,15 @@
             },
             "recent_days_forecast": {
                 "title": "Edit recent days forecast helper",
-                "description": "Recent bias controls how strongly newer days influence the average: 0% weights all days equally, 100% weights the newest day twice as strongly as the oldest day, and days in between are weighted linearly.",
                 "data": {
                     "name": "Helper name",
                     "source_entity": "Source sensor",
                     "history_days": "History days",
                     "forecast_horizon_hours": "Forecast horizon (hours)",
                     "recent_bias_pct": "Recent bias percent"
+                },
+                "data_description": {
+                    "recent_bias_pct": "0% weights all days equally. 100% weights the newest day twice as strongly as the oldest day, with days in between weighted linearly."
                 }
             }
         },
