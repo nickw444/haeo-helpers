@@ -12,7 +12,10 @@ from homeassistant.components.recorder.statistics import statistics_during_perio
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import Event, EventStateChangedData, HomeAssistant, callback
-from homeassistant.helpers.event import async_track_state_change_event
+from homeassistant.helpers.event import (
+    async_track_state_change_event,
+    async_track_time_interval,
+)
 from homeassistant.util import dt as dt_util
 
 from .const import (
@@ -29,6 +32,7 @@ from .const import (
     DEFAULT_FORECAST_HORIZON_HOURS,
     DEFAULT_HISTORY_DAYS,
     DEFAULT_RECENT_BIAS_PCT,
+    INTERVAL_MINUTES,
 )
 
 if TYPE_CHECKING:
@@ -64,7 +68,7 @@ class RecentDaysForecastSensor(SensorEntity):
     """Helper sensor that forecasts from recent full-day history."""
 
     _attr_icon = "mdi:calendar-clock"
-    _attr_should_poll = True
+    _attr_should_poll = False
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         """Initialize the sensor."""
@@ -127,10 +131,23 @@ class RecentDaysForecastSensor(SensorEntity):
                 self._handle_source_state_change,
             )
         )
+        self.async_on_remove(
+            async_track_time_interval(
+                self.hass,
+                self._handle_scheduled_refresh,
+                timedelta(minutes=INTERVAL_MINUTES),
+            )
+        )
 
     @callback
     def _handle_source_state_change(self, event: Event[EventStateChangedData]) -> None:  # noqa: ARG002
         """Handle source updates."""
+        self._refresh_source_metadata()
+        self.async_write_ha_state()
+
+    @callback
+    def _handle_scheduled_refresh(self, now: datetime) -> None:  # noqa: ARG002
+        """Refresh the forecast on the configured interval."""
         self.async_schedule_update_ha_state(force_refresh=True)
 
     async def async_update(self) -> None:

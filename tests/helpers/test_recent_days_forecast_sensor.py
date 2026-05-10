@@ -179,15 +179,45 @@ async def test_recent_days_forecast_unavailable_without_statistics(
     assert sensor.extra_state_attributes[ATTR_FORECAST] == []
 
 
-async def test_source_state_change_schedules_forced_refresh(
+async def test_source_state_change_updates_metadata_without_forced_refresh(
+    hass,
+    mock_entry_factory,
+    source_state_factory,
+):
+    """Source changes update metadata without re-querying recorder."""
+    source_state_factory(
+        "sensor.recent_load",
+        state="1.5",
+        attributes={"unit_of_measurement": "W"},
+    )
+    sensor = _create_sensor(hass, mock_entry_factory)
+    schedule_mock = Mock()
+    write_mock = Mock()
+    sensor.async_schedule_update_ha_state = schedule_mock
+    sensor.async_write_ha_state = write_mock
+
+    source_state_factory(
+        "sensor.recent_load",
+        state="1.6",
+        attributes={"unit_of_measurement": "kW"},
+    )
+
+    sensor._handle_source_state_change(Mock())
+
+    assert sensor.native_unit_of_measurement == "kW"
+    schedule_mock.assert_not_called()
+    write_mock.assert_called_once_with()
+
+
+async def test_scheduled_refresh_schedules_forced_refresh(
     hass,
     mock_entry_factory,
 ):
-    """Source state changes should trigger a forced async update."""
+    """Scheduled refreshes should trigger a forced async update."""
     sensor = _create_sensor(hass, mock_entry_factory)
     schedule_mock = Mock()
     sensor.async_schedule_update_ha_state = schedule_mock
 
-    sensor._handle_source_state_change(Mock())
+    sensor._handle_scheduled_refresh(Mock())
 
     schedule_mock.assert_called_once_with(force_refresh=True)

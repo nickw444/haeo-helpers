@@ -73,6 +73,9 @@ from custom_components.haeo_helpers.helpers.recent_days_forecast.const import (
 from custom_components.haeo_helpers.helpers.recent_days_forecast.const import (
     CONF_SOURCE_ENTITY as CONF_RECENT_SOURCE_ENTITY,
 )
+from custom_components.haeo_helpers.helpers.recent_days_forecast.flow import (
+    normalize_user_input as normalize_recent_days_user_input,
+)
 
 TRANSLATIONS_PATH = (
     Path(__file__).parents[1]
@@ -460,6 +463,29 @@ async def test_create_recent_days_forecast_happy_path(hass):
     assert create_result["type"] == FlowResultType.CREATE_ENTRY
     assert create_result["title"] == "Recent Forecast"
     assert create_result["data"][CONF_HELPER_KIND] == HELPER_KIND_RECENT_DAYS_FORECAST
+    assert create_result["data"][CONF_RECENT_SOURCE_ENTITY] == "sensor.recent_load"
+    assert create_result["data"][CONF_RECENT_HISTORY_DAYS] == 3
+    assert create_result["data"][CONF_RECENT_FORECAST_HORIZON_HOURS] == 48
+    assert create_result["data"][CONF_RECENT_BIAS_PCT] == 100.0
+
+
+def test_recent_days_normalize_clamps_recent_bias():
+    """Recent-days normalization clamps bias to the documented percentage range."""
+    base_input = {
+        CONF_RECENT_SOURCE_ENTITY: "sensor.recent_load",
+        CONF_RECENT_HISTORY_DAYS: 3,
+        CONF_RECENT_FORECAST_HORIZON_HOURS: 48,
+    }
+
+    high_result = normalize_recent_days_user_input(
+        {**base_input, CONF_RECENT_BIAS_PCT: 250}
+    )
+    low_result = normalize_recent_days_user_input(
+        {**base_input, CONF_RECENT_BIAS_PCT: -5}
+    )
+
+    assert high_result[CONF_RECENT_BIAS_PCT] == 100.0
+    assert low_result[CONF_RECENT_BIAS_PCT] == 0.0
 
 
 async def test_create_rejects_missing_forecast_source(hass):

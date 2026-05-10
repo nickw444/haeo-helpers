@@ -96,7 +96,7 @@ def build_schema(current: dict[str, Any] | None = None) -> vol.Schema:
             ): selector.NumberSelector(
                 selector.NumberSelectorConfig(
                     min=0,
-                    max=500,
+                    max=100,
                     step=1,
                     mode=selector.NumberSelectorMode.BOX,
                     unit_of_measurement="%",
@@ -128,8 +128,13 @@ def normalize_user_input(user_input: dict[str, Any]) -> dict[str, Any]:
         CONF_SOURCE_ENTITY: user_input[CONF_SOURCE_ENTITY],
         CONF_HISTORY_DAYS: int(user_input[CONF_HISTORY_DAYS]),
         CONF_FORECAST_HORIZON_HOURS: int(user_input[CONF_FORECAST_HORIZON_HOURS]),
-        CONF_RECENT_BIAS_PCT: float(user_input[CONF_RECENT_BIAS_PCT]),
+        CONF_RECENT_BIAS_PCT: _clamp_recent_bias_pct(user_input[CONF_RECENT_BIAS_PCT]),
     }
+
+
+def _clamp_recent_bias_pct(value: Any) -> float:
+    """Clamp recent-bias input to the documented percentage range."""
+    return min(100.0, max(0.0, float(value)))
 
 
 def options_defaults_from_entry(entry: ConfigEntry) -> dict[str, Any]:
