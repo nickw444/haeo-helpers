@@ -61,7 +61,7 @@
             },
             "recent_days_forecast": {
                 "title": "Create recent days forecast helper",
-                "description": "Build a forecast from recent full-day recorder statistics.",
+                "description": "Build a forecast from recent full-day recorder statistics. Recent bias controls how strongly newer days influence the average: 0% weights all days equally, 100% weights the newest day twice as strongly as the oldest day, and days in between are weighted linearly.",
                 "data": {
                     "name": "Helper name",
                     "source_entity": "Source sensor",
@@ -132,6 +132,7 @@
             },
             "recent_days_forecast": {
                 "title": "Edit recent days forecast helper",
+                "description": "Recent bias controls how strongly newer days influence the average: 0% weights all days equally, 100% weights the newest day twice as strongly as the oldest day, and days in between are weighted linearly.",
                 "data": {
                     "name": "Helper name",
                     "source_entity": "Source sensor",
