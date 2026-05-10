@@ -58,6 +58,17 @@
                     "realtime_entity": "Realtime source sensor",
                     "smoothing_window_minutes": "Smoothing window (minutes)"
                 }
+            },
+            "recent_days_forecast": {
+                "title": "Create recent days forecast helper",
+                "description": "Build a forecast from recent full-day recorder statistics.",
+                "data": {
+                    "name": "Helper name",
+                    "source_entity": "Source sensor",
+                    "history_days": "History days",
+                    "forecast_horizon_hours": "Forecast horizon (hours)",
+                    "recent_bias_pct": "Recent bias percent"
+                }
             }
         },
         "abort": {
@@ -117,6 +128,16 @@
                     "forecast_entity": "Forecast source sensor",
                     "realtime_entity": "Realtime source sensor",
                     "smoothing_window_minutes": "Smoothing window (minutes)"
+                }
+            },
+            "recent_days_forecast": {
+                "title": "Edit recent days forecast helper",
+                "data": {
+                    "name": "Helper name",
+                    "source_entity": "Source sensor",
+                    "history_days": "History days",
+                    "forecast_horizon_hours": "Forecast horizon (hours)",
+                    "recent_bias_pct": "Recent bias percent"
                 }
             }
         },

@@ -17,6 +17,7 @@ from custom_components.haeo_helpers.const import (
     HELPER_KIND_FORECAST_RISK_ADJUSTMENT,
     HELPER_KIND_FORECAST_STATISTIC,
     HELPER_KIND_REALTIME_FORECAST_SMOOTHING,
+    HELPER_KIND_RECENT_DAYS_FORECAST,
 )
 from custom_components.haeo_helpers.helpers.extend_forecast.const import (
     CONF_FORECAST_HORIZON_HOURS,
@@ -59,6 +60,18 @@ from custom_components.haeo_helpers.helpers.realtime_forecast_smoothing.const im
     CONF_FORECAST_ENTITY,
     CONF_REALTIME_ENTITY,
     CONF_SMOOTHING_WINDOW_MINUTES,
+)
+from custom_components.haeo_helpers.helpers.recent_days_forecast.const import (
+    CONF_FORECAST_HORIZON_HOURS as CONF_RECENT_FORECAST_HORIZON_HOURS,
+)
+from custom_components.haeo_helpers.helpers.recent_days_forecast.const import (
+    CONF_HISTORY_DAYS as CONF_RECENT_HISTORY_DAYS,
+)
+from custom_components.haeo_helpers.helpers.recent_days_forecast.const import (
+    CONF_RECENT_BIAS_PCT,
+)
+from custom_components.haeo_helpers.helpers.recent_days_forecast.const import (
+    CONF_SOURCE_ENTITY as CONF_RECENT_SOURCE_ENTITY,
 )
 
 TRANSLATIONS_PATH = (
@@ -411,6 +424,42 @@ async def test_realtime_forecast_smoothing_rejects_non_finite_realtime_source(
 
     assert result["type"] == FlowResultType.FORM
     assert result["errors"] == {CONF_REALTIME_ENTITY: "entity_not_number"}
+
+
+async def test_create_recent_days_forecast_happy_path(hass):
+    """Creating a recent-days forecast helper succeeds for a numeric source."""
+    hass.states.async_set(
+        "sensor.recent_load",
+        "1.5",
+        {"unit_of_measurement": "kW"},
+    )
+
+    init_result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": "user"},
+    )
+    kind_result = await hass.config_entries.flow.async_configure(
+        init_result["flow_id"],
+        {CONF_HELPER_KIND: HELPER_KIND_RECENT_DAYS_FORECAST},
+    )
+
+    assert kind_result["type"] == FlowResultType.FORM
+    assert kind_result["step_id"] == HELPER_KIND_RECENT_DAYS_FORECAST
+
+    create_result = await hass.config_entries.flow.async_configure(
+        kind_result["flow_id"],
+        {
+            CONF_NAME: "Recent Forecast",
+            CONF_RECENT_SOURCE_ENTITY: "sensor.recent_load",
+            CONF_RECENT_HISTORY_DAYS: 3,
+            CONF_RECENT_FORECAST_HORIZON_HOURS: 48,
+            CONF_RECENT_BIAS_PCT: 100,
+        },
+    )
+
+    assert create_result["type"] == FlowResultType.CREATE_ENTRY
+    assert create_result["title"] == "Recent Forecast"
+    assert create_result["data"][CONF_HELPER_KIND] == HELPER_KIND_RECENT_DAYS_FORECAST
 
 
 async def test_create_rejects_missing_forecast_source(hass):
