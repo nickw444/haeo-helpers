@@ -8,6 +8,7 @@ from datetime import UTC, datetime, timedelta
 from functools import partial
 from typing import TYPE_CHECKING, Any, Final, NamedTuple
 
+from homeassistant.components.recorder import get_instance as get_recorder_instance
 from homeassistant.components.recorder.statistics import statistics_during_period
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
@@ -165,7 +166,8 @@ class RecentDaysForecastSensor(SensorEntity):
         self._refresh_source_metadata()
 
         reference_now = dt_util.now()
-        statistics = await self._hass.async_add_executor_job(
+        recorder = get_recorder_instance(self._hass)
+        statistics = await recorder.async_add_executor_job(
             partial(
                 _statistics_for_sensor,
                 hass=self._hass,

@@ -8,6 +8,7 @@ from functools import partial
 from itertools import pairwise
 from typing import TYPE_CHECKING, Any, Final, NamedTuple
 
+from homeassistant.components.recorder import get_instance as get_recorder_instance
 from homeassistant.components.recorder.history import state_changes_during_period
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
@@ -168,7 +169,8 @@ class ExtendForecastSensor(SensorEntity):
         target_end = reference_now + timedelta(hours=self._forecast_horizon_hours)
         history_entries: list[tuple[datetime, float]] = []
         if source_end < target_end:
-            history_entries = await self._hass.async_add_executor_job(
+            recorder = get_recorder_instance(self._hass)
+            history_entries = await recorder.async_add_executor_job(
                 partial(
                     _history_entries,
                     hass=self._hass,

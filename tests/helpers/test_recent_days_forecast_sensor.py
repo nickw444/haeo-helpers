@@ -91,7 +91,11 @@ async def test_recent_days_forecast_averages_previous_full_days(
         recent_sensor_module, "statistics_during_period", statistics_mock
     )
     executor_mock = AsyncMock(side_effect=lambda func, *args: func(*args))
-    monkeypatch.setattr(hass, "async_add_executor_job", executor_mock)
+    monkeypatch.setattr(
+        recent_sensor_module,
+        "get_recorder_instance",
+        Mock(return_value=Mock(async_add_executor_job=executor_mock)),
+    )
 
     sensor = _create_sensor(hass, mock_entry_factory)
 
@@ -138,9 +142,15 @@ async def test_recent_bias_weights_newer_days_more_heavily(
         Mock(return_value={"sensor.recent_load": _stats_for_previous_days(fixed_now)}),
     )
     monkeypatch.setattr(
-        hass,
-        "async_add_executor_job",
-        AsyncMock(side_effect=lambda func, *args: func(*args)),
+        recent_sensor_module,
+        "get_recorder_instance",
+        Mock(
+            return_value=Mock(
+                async_add_executor_job=AsyncMock(
+                    side_effect=lambda func, *args: func(*args)
+                )
+            )
+        ),
     )
     sensor = _create_sensor(hass, mock_entry_factory, recent_bias_pct=100.0)
 
@@ -166,9 +176,15 @@ async def test_recent_days_forecast_unavailable_without_statistics(
         Mock(return_value={"sensor.recent_load": []}),
     )
     monkeypatch.setattr(
-        hass,
-        "async_add_executor_job",
-        AsyncMock(side_effect=lambda func, *args: func(*args)),
+        recent_sensor_module,
+        "get_recorder_instance",
+        Mock(
+            return_value=Mock(
+                async_add_executor_job=AsyncMock(
+                    side_effect=lambda func, *args: func(*args)
+                )
+            )
+        ),
     )
     sensor = _create_sensor(hass, mock_entry_factory)
 

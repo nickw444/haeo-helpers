@@ -103,7 +103,12 @@ async def test_extra_attributes_preserve_source_attrs_and_extend_forecast(
     )
 
     executor_mock = AsyncMock(side_effect=lambda func, *args: func(*args))
-    monkeypatch.setattr(hass, "async_add_executor_job", executor_mock)
+    recorder_mock = Mock(async_add_executor_job=executor_mock)
+    monkeypatch.setattr(
+        extend_sensor_module,
+        "get_recorder_instance",
+        Mock(return_value=recorder_mock),
+    )
 
     sensor = _create_sensor(hass, mock_entry_factory)
 
@@ -192,12 +197,18 @@ async def test_available_false_when_source_forecast_is_missing(
     )
 
     executor_mock = AsyncMock(side_effect=lambda func, *args: func(*args))
-    monkeypatch.setattr(hass, "async_add_executor_job", executor_mock)
+    get_recorder_mock = Mock(return_value=Mock(async_add_executor_job=executor_mock))
+    monkeypatch.setattr(
+        extend_sensor_module,
+        "get_recorder_instance",
+        get_recorder_mock,
+    )
 
     sensor = _create_sensor(hass, mock_entry_factory)
 
     await sensor.async_update()
 
+    get_recorder_mock.assert_not_called()
     executor_mock.assert_not_awaited()
     assert sensor.available is False
     assert sensor.native_value == pytest.approx(42.5, rel=1e-6, abs=1e-6)
@@ -302,10 +313,11 @@ async def test_stale_source_forecast_does_not_append_past_projection_points(
         "state_changes_during_period",
         history_mock,
     )
+    executor_mock = AsyncMock(side_effect=lambda func, *args: func(*args))
     monkeypatch.setattr(
-        hass,
-        "async_add_executor_job",
-        AsyncMock(side_effect=lambda func, *args: func(*args)),
+        extend_sensor_module,
+        "get_recorder_instance",
+        Mock(return_value=Mock(async_add_executor_job=executor_mock)),
     )
 
     sensor = _create_sensor(hass, mock_entry_factory, forecast_horizon_hours=2)
