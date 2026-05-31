@@ -271,47 +271,15 @@ class ForecastRiskAdjustmentSensor(SensorEntity):
         if not isinstance(source_forecast, list):
             return None, None
 
-        now = dt_util.now()
-        adjusted_forecast: list[dict[str, Any]] = []
-        closest_value: float | None = None
-        closest_diff: float | None = None
-
-        for point in source_forecast:
-            if not isinstance(point, dict):
-                continue
-
-            adjusted_point = dict(point)
-            value = point.get("value")
-            point_time = _parse_point_time(point.get("time"), now)
-
-            if not isinstance(value, int | float) or isinstance(value, bool):
-                adjusted_forecast.append(adjusted_point)
-                continue
-
-            if point_time is None:
-                adjusted_forecast.append(adjusted_point)
-                continue
-
-            if not math.isfinite(float(value)):
-                adjusted_forecast.append(adjusted_point)
-                continue
-
-            minutes_from_now = (point_time - now).total_seconds() / 60.0
-            adjusted_value = self._apply_bias(
-                base_value=float(value),
-                minutes_from_now=minutes_from_now,
-                basis_bias_pct=basis_bias_pct,
-                risk_bias_pct=risk_bias_pct,
-            )
-            adjusted_point["value"] = adjusted_value
-            adjusted_forecast.append(adjusted_point)
-
-            time_diff_seconds = abs((point_time - now).total_seconds())
-            if closest_diff is None or time_diff_seconds < closest_diff:
-                closest_diff = time_diff_seconds
-                closest_value = adjusted_value
-
-        return adjusted_forecast, closest_value
+        return adjust_forecast_for_risk(
+            source_forecast,
+            reference_now=dt_util.now(),
+            basis_bias_pct=basis_bias_pct,
+            risk_bias_pct=risk_bias_pct,
+            ramp_start_after_minutes=self._ramp_start_after_minutes,
+            ramp_duration_minutes=self._ramp_duration_minutes,
+            curve=self._curve,
+        )
 
     def _apply_bias(
         self,
@@ -321,31 +289,127 @@ class ForecastRiskAdjustmentSensor(SensorEntity):
         risk_bias_pct: float,
     ) -> float:
         """Apply basis and ramped risk bias to a single forecast value."""
-        risk_factor = self._risk_factor(minutes_from_now)
-        total_bias_pct = basis_bias_pct + (risk_bias_pct * risk_factor)
-        return base_value * (1.0 + (total_bias_pct / 100.0))
+        return apply_risk_bias(
+            base_value=base_value,
+            minutes_from_now=minutes_from_now,
+            basis_bias_pct=basis_bias_pct,
+            risk_bias_pct=risk_bias_pct,
+            ramp_start_after_minutes=self._ramp_start_after_minutes,
+            ramp_duration_minutes=self._ramp_duration_minutes,
+            curve=self._curve,
+        )
 
     def _risk_factor(self, minutes_from_now: float) -> float:
         """Return ramp factor from 0.0 to 1.0 based on horizon distance."""
-        start = self._ramp_start_after_minutes
-        duration = self._ramp_duration_minutes
+        return risk_factor(
+            minutes_from_now=minutes_from_now,
+            ramp_start_after_minutes=self._ramp_start_after_minutes,
+            ramp_duration_minutes=self._ramp_duration_minutes,
+            curve=self._curve,
+        )
 
-        if minutes_from_now <= start:
-            return 0.0
 
-        if duration <= 0:
-            return 1.0
+def adjust_forecast_for_risk(
+    source_forecast: list[Any],
+    *,
+    reference_now: datetime,
+    basis_bias_pct: float,
+    risk_bias_pct: float,
+    ramp_start_after_minutes: float,
+    ramp_duration_minutes: float,
+    curve: str = CURVE_LINEAR,
+) -> tuple[list[dict[str, Any]], float | None]:
+    """Return risk-adjusted forecast points and the value closest to now."""
+    adjusted_forecast: list[dict[str, Any]] = []
+    closest_value: float | None = None
+    closest_diff: float | None = None
 
-        ramp_end = start + duration
-        if minutes_from_now >= ramp_end:
-            return 1.0
+    for point in source_forecast:
+        if not isinstance(point, dict):
+            continue
 
-        progress = (minutes_from_now - start) / duration
+        adjusted_point = dict(point)
+        value = point.get("value")
+        point_time = _parse_point_time(point.get("time"), reference_now)
 
-        if self._curve == CURVE_LINEAR:
-            return progress
+        if not isinstance(value, int | float) or isinstance(value, bool):
+            adjusted_forecast.append(adjusted_point)
+            continue
 
+        if point_time is None:
+            adjusted_forecast.append(adjusted_point)
+            continue
+
+        if not math.isfinite(float(value)):
+            adjusted_forecast.append(adjusted_point)
+            continue
+
+        minutes_from_now = (point_time - reference_now).total_seconds() / 60.0
+        adjusted_value = apply_risk_bias(
+            base_value=float(value),
+            minutes_from_now=minutes_from_now,
+            basis_bias_pct=basis_bias_pct,
+            risk_bias_pct=risk_bias_pct,
+            ramp_start_after_minutes=ramp_start_after_minutes,
+            ramp_duration_minutes=ramp_duration_minutes,
+            curve=curve,
+        )
+        adjusted_point["value"] = adjusted_value
+        adjusted_forecast.append(adjusted_point)
+
+        time_diff_seconds = abs((point_time - reference_now).total_seconds())
+        if closest_diff is None or time_diff_seconds < closest_diff:
+            closest_diff = time_diff_seconds
+            closest_value = adjusted_value
+
+    return adjusted_forecast, closest_value
+
+
+def apply_risk_bias(
+    *,
+    base_value: float,
+    minutes_from_now: float,
+    basis_bias_pct: float,
+    risk_bias_pct: float,
+    ramp_start_after_minutes: float,
+    ramp_duration_minutes: float,
+    curve: str = CURVE_LINEAR,
+) -> float:
+    """Apply basis and ramped risk bias to a single forecast value."""
+    factor = risk_factor(
+        minutes_from_now=minutes_from_now,
+        ramp_start_after_minutes=ramp_start_after_minutes,
+        ramp_duration_minutes=ramp_duration_minutes,
+        curve=curve,
+    )
+    total_bias_pct = basis_bias_pct + (risk_bias_pct * factor)
+    return base_value * (1.0 + (total_bias_pct / 100.0))
+
+
+def risk_factor(
+    *,
+    minutes_from_now: float,
+    ramp_start_after_minutes: float,
+    ramp_duration_minutes: float,
+    curve: str = CURVE_LINEAR,
+) -> float:
+    """Return ramp factor from 0.0 to 1.0 based on horizon distance."""
+    if minutes_from_now <= ramp_start_after_minutes:
+        return 0.0
+
+    if ramp_duration_minutes <= 0:
+        return 1.0
+
+    ramp_end = ramp_start_after_minutes + ramp_duration_minutes
+    if minutes_from_now >= ramp_end:
+        return 1.0
+
+    progress = (minutes_from_now - ramp_start_after_minutes) / ramp_duration_minutes
+
+    if curve == CURVE_LINEAR:
         return progress
+
+    return progress
 
 
 def _parse_point_time(raw_time: Any, reference_now: datetime) -> datetime | None:

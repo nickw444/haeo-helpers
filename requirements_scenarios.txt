@@ -1,0 +1,5 @@
+haeo @ git+https://github.com/hass-energy/haeo.git
+tabulate
+matplotlib
+networkx
+PyYAML

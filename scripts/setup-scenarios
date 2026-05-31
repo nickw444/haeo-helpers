@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+set -e
+
+cd "$(dirname "$0")/.."
+
+python3 -m venv .venv_scenarios
+.venv_scenarios/bin/python -m pip install --upgrade pip
+.venv_scenarios/bin/python -m pip install --requirement requirements_scenarios.txt
