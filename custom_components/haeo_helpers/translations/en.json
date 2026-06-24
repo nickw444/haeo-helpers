@@ -72,6 +72,15 @@
                 "data_description": {
                     "recent_bias_pct": "0% weights all days equally. 100% weights the newest day twice as strongly as the oldest day, with days in between weighted linearly."
                 }
+            },
+            "merge_forecast": {
+                "title": "Create merge forecast helper",
+                "description": "Merge ordered forecast sensors, giving earlier sources precedence.",
+                "data": {
+                    "name": "Helper name",
+                    "source_entities": "Forecast source sensors",
+                    "interpolation_mode": "Interpolation mode"
+                }
             }
         },
         "abort": {
@@ -82,7 +91,10 @@
             "entity_not_forecast": "Selected entity does not expose a forecast list attribute.",
             "entity_required": "An entity is required when source is set to Entity.",
             "entity_not_number": "Selected entity must have a numeric state.",
-            "value_required": "A constant value is required when source is set to Constant."
+            "value_required": "A constant value is required when source is set to Constant.",
+            "entities_required": "At least one forecast source sensor is required.",
+            "duplicate_entities": "Forecast source sensors must be unique.",
+            "invalid_interpolation_mode": "Selected interpolation mode is not supported."
         }
     },
     "options": {
@@ -145,6 +157,14 @@
                 "data_description": {
                     "recent_bias_pct": "0% weights all days equally. 100% weights the newest day twice as strongly as the oldest day, with days in between weighted linearly."
                 }
+            },
+            "merge_forecast": {
+                "title": "Edit merge forecast helper",
+                "data": {
+                    "name": "Helper name",
+                    "source_entities": "Forecast source sensors",
+                    "interpolation_mode": "Interpolation mode"
+                }
             }
         },
         "abort": {
@@ -155,7 +175,10 @@
             "entity_not_forecast": "Selected entity does not expose a forecast list attribute.",
             "entity_required": "An entity is required when source is set to Entity.",
             "entity_not_number": "Selected entity must have a numeric state.",
-            "value_required": "A constant value is required when source is set to Constant."
+            "value_required": "A constant value is required when source is set to Constant.",
+            "entities_required": "At least one forecast source sensor is required.",
+            "duplicate_entities": "Forecast source sensors must be unique.",
+            "invalid_interpolation_mode": "Selected interpolation mode is not supported."
         }
     },
     "selector": {

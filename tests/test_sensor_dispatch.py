@@ -13,6 +13,7 @@ from custom_components.haeo_helpers.const import (
     HELPER_KIND_EXTEND_FORECAST,
     HELPER_KIND_FORECAST_RISK_ADJUSTMENT,
     HELPER_KIND_FORECAST_STATISTIC,
+    HELPER_KIND_MERGE_FORECAST,
     HELPER_KIND_REALTIME_FORECAST_SMOOTHING,
     HELPER_KIND_RECENT_DAYS_FORECAST,
 )
@@ -124,6 +125,28 @@ async def test_sensor_dispatch_calls_recent_days_forecast_setup(hass, monkeypatc
         title="Dispatch",
         data={CONF_HELPER_KIND: HELPER_KIND_RECENT_DAYS_FORECAST},
         entry_id="dispatch_recent_days",
+    )
+
+    async_add_entities = AsyncMock()
+    await async_setup_entry(hass, entry, async_add_entities)
+
+    setup_mock.assert_awaited_once_with(hass, entry, async_add_entities)
+
+
+async def test_sensor_dispatch_calls_merge_forecast_setup(hass, monkeypatch):
+    """Dispatch routes merge helper entries to merge sensor setup."""
+    setup_mock = AsyncMock()
+    monkeypatch.setitem(
+        SENSOR_SETUP_BY_HELPER_KIND,
+        HELPER_KIND_MERGE_FORECAST,
+        setup_mock,
+    )
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Dispatch",
+        data={CONF_HELPER_KIND: HELPER_KIND_MERGE_FORECAST},
+        entry_id="dispatch_merge",
     )
 
     async_add_entities = AsyncMock()

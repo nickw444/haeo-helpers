@@ -16,6 +16,7 @@ from custom_components.haeo_helpers.const import (
     HELPER_KIND_EXTEND_FORECAST,
     HELPER_KIND_FORECAST_RISK_ADJUSTMENT,
     HELPER_KIND_FORECAST_STATISTIC,
+    HELPER_KIND_MERGE_FORECAST,
     HELPER_KIND_REALTIME_FORECAST_SMOOTHING,
     HELPER_KIND_RECENT_DAYS_FORECAST,
 )
@@ -55,6 +56,11 @@ from custom_components.haeo_helpers.helpers.forecast_statistic.const import (
 )
 from custom_components.haeo_helpers.helpers.forecast_statistic.const import (
     CONF_SOURCE_ENTITY as CONF_STAT_SOURCE_ENTITY,
+)
+from custom_components.haeo_helpers.helpers.merge_forecast.const import (
+    CONF_INTERPOLATION_MODE,
+    CONF_SOURCE_ENTITIES,
+    INTERPOLATION_MODE_PREVIOUS,
 )
 from custom_components.haeo_helpers.helpers.realtime_forecast_smoothing.const import (
     CONF_FORECAST_ENTITY,
@@ -469,6 +475,141 @@ async def test_create_recent_days_forecast_happy_path(hass):
     assert create_result["data"][CONF_RECENT_BIAS_PCT] == 100.0
 
 
+async def test_create_merge_forecast_happy_path(
+    hass,
+    forecast_points_factory,
+    source_state_factory,
+):
+    """Creating a merge-forecast helper succeeds for ordered forecast sources."""
+    source_state_factory(
+        "sensor.merge_primary",
+        forecast=forecast_points_factory([(0, 1.0), (60, 2.0)]),
+    )
+    source_state_factory(
+        "sensor.merge_secondary",
+        forecast=forecast_points_factory([(60, 20.0), (120, 30.0)]),
+    )
+
+    init_result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": "user"},
+    )
+    kind_result = await hass.config_entries.flow.async_configure(
+        init_result["flow_id"],
+        {CONF_HELPER_KIND: HELPER_KIND_MERGE_FORECAST},
+    )
+
+    assert kind_result["type"] == FlowResultType.FORM
+    assert kind_result["step_id"] == HELPER_KIND_MERGE_FORECAST
+
+    create_result = await hass.config_entries.flow.async_configure(
+        kind_result["flow_id"],
+        {
+            CONF_NAME: "Merge Forecast",
+            CONF_SOURCE_ENTITIES: [
+                "sensor.merge_primary",
+                "sensor.merge_secondary",
+            ],
+            CONF_INTERPOLATION_MODE: INTERPOLATION_MODE_PREVIOUS,
+        },
+    )
+
+    assert create_result["type"] == FlowResultType.CREATE_ENTRY
+    assert create_result["title"] == "Merge Forecast"
+    assert create_result["data"][CONF_HELPER_KIND] == HELPER_KIND_MERGE_FORECAST
+    assert create_result["data"][CONF_SOURCE_ENTITIES] == [
+        "sensor.merge_primary",
+        "sensor.merge_secondary",
+    ]
+    assert create_result["data"][CONF_INTERPOLATION_MODE] == INTERPOLATION_MODE_PREVIOUS
+
+
+async def test_merge_forecast_rejects_empty_source_list(hass):
+    """Merge flow requires at least one forecast source."""
+    init_result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": "user"},
+    )
+    kind_result = await hass.config_entries.flow.async_configure(
+        init_result["flow_id"],
+        {CONF_HELPER_KIND: HELPER_KIND_MERGE_FORECAST},
+    )
+
+    result = await hass.config_entries.flow.async_configure(
+        kind_result["flow_id"],
+        {
+            CONF_NAME: "Merge Forecast",
+            CONF_SOURCE_ENTITIES: [],
+            CONF_INTERPOLATION_MODE: INTERPOLATION_MODE_PREVIOUS,
+        },
+    )
+
+    assert result["type"] == FlowResultType.FORM
+    assert result["errors"] == {CONF_SOURCE_ENTITIES: "entities_required"}
+
+
+async def test_merge_forecast_rejects_duplicate_sources(
+    hass,
+    forecast_points_factory,
+    source_state_factory,
+):
+    """Merge flow rejects duplicate source entities."""
+    source_state_factory(
+        "sensor.merge_primary",
+        forecast=forecast_points_factory([(0, 1.0), (60, 2.0)]),
+    )
+
+    init_result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": "user"},
+    )
+    kind_result = await hass.config_entries.flow.async_configure(
+        init_result["flow_id"],
+        {CONF_HELPER_KIND: HELPER_KIND_MERGE_FORECAST},
+    )
+
+    result = await hass.config_entries.flow.async_configure(
+        kind_result["flow_id"],
+        {
+            CONF_NAME: "Merge Forecast",
+            CONF_SOURCE_ENTITIES: [
+                "sensor.merge_primary",
+                "sensor.merge_primary",
+            ],
+            CONF_INTERPOLATION_MODE: INTERPOLATION_MODE_PREVIOUS,
+        },
+    )
+
+    assert result["type"] == FlowResultType.FORM
+    assert result["errors"] == {CONF_SOURCE_ENTITIES: "duplicate_entities"}
+
+
+async def test_merge_forecast_rejects_non_forecast_source(hass):
+    """Merge flow requires every selected source to expose a forecast list."""
+    hass.states.async_set("sensor.not_forecast", "1", {"unit_of_measurement": "$"})
+
+    init_result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": "user"},
+    )
+    kind_result = await hass.config_entries.flow.async_configure(
+        init_result["flow_id"],
+        {CONF_HELPER_KIND: HELPER_KIND_MERGE_FORECAST},
+    )
+
+    result = await hass.config_entries.flow.async_configure(
+        kind_result["flow_id"],
+        {
+            CONF_NAME: "Merge Forecast",
+            CONF_SOURCE_ENTITIES: ["sensor.not_forecast"],
+            CONF_INTERPOLATION_MODE: INTERPOLATION_MODE_PREVIOUS,
+        },
+    )
+
+    assert result["type"] == FlowResultType.FORM
+    assert result["errors"] == {CONF_SOURCE_ENTITIES: "entity_not_forecast"}
+
+
 def test_recent_days_normalize_clamps_recent_bias():
     """Recent-days normalization clamps bias to the documented percentage range."""
     base_input = {
@@ -674,6 +815,28 @@ async def test_options_flow_routes_to_correct_step_for_risk_adjustment(
 
     assert result["type"] == FlowResultType.FORM
     assert result["step_id"] == HELPER_KIND_FORECAST_RISK_ADJUSTMENT
+
+
+async def test_options_flow_routes_to_correct_step_for_merge_forecast(
+    hass, mock_entry_factory
+):
+    """Options flow for merge entries opens merge-forecast step."""
+    entry = mock_entry_factory(
+        title="Merge",
+        data={
+            CONF_HELPER_KIND: HELPER_KIND_MERGE_FORECAST,
+            CONF_SOURCE_ENTITIES: [
+                "sensor.primary_forecast",
+                "sensor.secondary_forecast",
+            ],
+            CONF_INTERPOLATION_MODE: INTERPOLATION_MODE_PREVIOUS,
+        },
+    )
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == HELPER_KIND_MERGE_FORECAST
 
 
 async def test_options_flow_updates_entry_title_and_options_payload(

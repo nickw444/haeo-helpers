@@ -16,12 +16,14 @@ from .const import (
     HELPER_KIND_EXTEND_FORECAST,
     HELPER_KIND_FORECAST_RISK_ADJUSTMENT,
     HELPER_KIND_FORECAST_STATISTIC,
+    HELPER_KIND_MERGE_FORECAST,
     HELPER_KIND_REALTIME_FORECAST_SMOOTHING,
     HELPER_KIND_RECENT_DAYS_FORECAST,
 )
 from .helpers.extend_forecast import flow as extend_forecast_flow
 from .helpers.forecast_risk_adjustment import flow as forecast_risk_adjustment_flow
 from .helpers.forecast_statistic import flow as forecast_statistic_flow
+from .helpers.merge_forecast import flow as merge_forecast_flow
 from .helpers.realtime_forecast_smoothing import (
     flow as realtime_forecast_smoothing_flow,
 )
@@ -58,6 +60,10 @@ HELPER_KIND_OPTIONS: Final = [
         value=HELPER_KIND_RECENT_DAYS_FORECAST,
         label="Recent Days Forecast",
     ),
+    selector.SelectOptionDict(
+        value=HELPER_KIND_MERGE_FORECAST,
+        label="Merge Forecast",
+    ),
 ]
 
 BUILD_SCHEMA_BY_KIND: Final[dict[str, BuildSchemaFunction]] = {
@@ -68,6 +74,7 @@ BUILD_SCHEMA_BY_KIND: Final[dict[str, BuildSchemaFunction]] = {
         realtime_forecast_smoothing_flow.build_schema
     ),
     HELPER_KIND_RECENT_DAYS_FORECAST: recent_days_forecast_flow.build_schema,
+    HELPER_KIND_MERGE_FORECAST: merge_forecast_flow.build_schema,
 }
 
 VALIDATE_BY_KIND: Final[dict[str, ValidateInputFunction]] = {
@@ -80,6 +87,7 @@ VALIDATE_BY_KIND: Final[dict[str, ValidateInputFunction]] = {
         realtime_forecast_smoothing_flow.validate_user_input
     ),
     HELPER_KIND_RECENT_DAYS_FORECAST: recent_days_forecast_flow.validate_user_input,
+    HELPER_KIND_MERGE_FORECAST: merge_forecast_flow.validate_user_input,
 }
 
 NORMALIZE_BY_KIND: Final[dict[str, NormalizeInputFunction]] = {
@@ -92,6 +100,7 @@ NORMALIZE_BY_KIND: Final[dict[str, NormalizeInputFunction]] = {
         realtime_forecast_smoothing_flow.normalize_user_input
     ),
     HELPER_KIND_RECENT_DAYS_FORECAST: recent_days_forecast_flow.normalize_user_input,
+    HELPER_KIND_MERGE_FORECAST: merge_forecast_flow.normalize_user_input,
 }
 
 OPTIONS_DEFAULTS_BY_KIND: Final[dict[str, BuildDefaultsFunction]] = {
@@ -106,6 +115,7 @@ OPTIONS_DEFAULTS_BY_KIND: Final[dict[str, BuildDefaultsFunction]] = {
     HELPER_KIND_RECENT_DAYS_FORECAST: (
         recent_days_forecast_flow.options_defaults_from_entry
     ),
+    HELPER_KIND_MERGE_FORECAST: merge_forecast_flow.options_defaults_from_entry,
 }
 
 
@@ -181,6 +191,9 @@ class HaeoHelpersConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if helper_kind == HELPER_KIND_RECENT_DAYS_FORECAST:
             return await self.async_step_recent_days_forecast()
 
+        if helper_kind == HELPER_KIND_MERGE_FORECAST:
+            return await self.async_step_merge_forecast()
+
         return self.async_abort(reason="unsupported_helper_kind")
 
     async def async_step_forecast_statistic(
@@ -230,6 +243,16 @@ class HaeoHelpersConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Configure a recent days forecast helper."""
         return await self._async_step_helper_kind(
             HELPER_KIND_RECENT_DAYS_FORECAST,
+            user_input,
+        )
+
+    async def async_step_merge_forecast(
+        self,
+        user_input: dict[str, Any] | None = None,
+    ) -> config_entries.ConfigFlowResult:
+        """Configure a merge forecast helper."""
+        return await self._async_step_helper_kind(
+            HELPER_KIND_MERGE_FORECAST,
             user_input,
         )
 
@@ -286,6 +309,9 @@ class HaeoHelpersOptionsFlow(config_entries.OptionsFlowWithConfigEntry):
         if helper_kind == HELPER_KIND_RECENT_DAYS_FORECAST:
             return await self.async_step_recent_days_forecast(user_input)
 
+        if helper_kind == HELPER_KIND_MERGE_FORECAST:
+            return await self.async_step_merge_forecast(user_input)
+
         return self.async_abort(reason="unsupported_helper_kind")
 
     async def async_step_forecast_statistic(
@@ -335,6 +361,16 @@ class HaeoHelpersOptionsFlow(config_entries.OptionsFlowWithConfigEntry):
         """Handle options for a recent days forecast helper."""
         return await self._async_step_helper_kind(
             HELPER_KIND_RECENT_DAYS_FORECAST,
+            user_input,
+        )
+
+    async def async_step_merge_forecast(
+        self,
+        user_input: dict[str, Any] | None = None,
+    ) -> config_entries.ConfigFlowResult:
+        """Handle options for a merge forecast helper."""
+        return await self._async_step_helper_kind(
+            HELPER_KIND_MERGE_FORECAST,
             user_input,
         )
 

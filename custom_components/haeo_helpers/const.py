@@ -19,6 +19,7 @@ HELPER_KIND_FORECAST_RISK_ADJUSTMENT: Final = "forecast_risk_adjustment"
 HELPER_KIND_EXTEND_FORECAST: Final = "extend_forecast"
 HELPER_KIND_REALTIME_FORECAST_SMOOTHING: Final = "realtime_forecast_smoothing"
 HELPER_KIND_RECENT_DAYS_FORECAST: Final = "recent_days_forecast"
+HELPER_KIND_MERGE_FORECAST: Final = "merge_forecast"
 DEFAULT_HELPER_KIND: Final = HELPER_KIND_FORECAST_STATISTIC
 
 LOGGER: Logger = getLogger(__package__)
